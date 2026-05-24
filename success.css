@@ -1,0 +1,356 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Image scaling improvements to reduce aliasing on high-DPI and during scaling */
+img,
+.image-1-icon,
+.image-2-icon,
+.image-6-icon {
+  max-width: 100%;
+  height: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  /* Prefer standard high-quality resampling to avoid pixelated aliasing */
+  image-rendering: auto !important;
+}
+.confirmation {
+  width: 100%;
+  min-height: 100vh;
+  position: relative;
+  background-color: #fff;
+  overflow: hidden;
+  text-align: center;
+  color: #f5f5f5;
+  font-family: 'Cal Sans';
+}
+
+.rectangle-parent {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.frame-child {
+  position: absolute;
+  width: 100%;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+  height: 31.61vw;
+}
+
+.success {
+  position: absolute;
+  top: 5.71vw;
+  left: 35.36vw;
+  letter-spacing: -0.92px;
+  line-height: 100%;
+  font-family: 'Bebas Neue';
+  color: #b0ffd9;
+  display: inline-block;
+  width: 29.05vw;
+  height: 4.76vw;
+  font-size: 5.36vw;
+}
+
+.image-1-icon {
+  position: absolute;
+  top: 3.33vw;
+  left: 3.39vw;
+  width: 9.52vw;
+  height: 9.52vw;
+  object-fit: cover;
+}
+
+.image-2-icon {
+  position: absolute;
+  top: 3.33vw;
+  right: 4.58vw;
+  width: 8.63vw;
+  height: 9.52vw;
+  object-fit: cover;
+}
+
+.rectangle-group {
+  position: absolute;
+  width: 100%;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  height: 5.36vw;
+  text-align: left;
+  font-size: 0.95vw;
+  font-family: 'Cal Sans';
+}
+
+.group-child {
+  position: absolute;
+  width: 100%;
+  top: 0;
+  right: 0;
+  left: 0;
+  background-color: #00579a;
+  height: 5.36vw;
+}
+
+.all-rights-reserved {
+  position: absolute;
+  top: 2.2vw;
+  left: 3.39vw;
+  line-height: 100%;
+}
+
+.btndate {
+  position: absolute;
+  bottom: 7.14vw;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 1.19vw;
+  background-color: #1d88d9;
+  width: 19.52vw;
+  height: 4.64vw;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7vw;
+  box-sizing: border-box;
+  font-size: 1.55vw;
+  cursor: pointer;
+}
+
+.go-back-to {
+  position: relative;
+  line-height: 100%;
+}
+
+.reminderrectangle-parent {
+  position: absolute;
+  top: 12.97vw;
+  bottom: 14.28vw;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: 50vw;
+  height: auto;
+  overflow: hidden;
+  font-size: 2.1vw;
+  color: #000;
+  font-family: Cairo;
+}
+
+.reminderrectangle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 1.19vw;
+  background-color: #c7dfff;
+  width: 100%;
+  height: 100%;
+  opacity: 0.61;
+}
+
+.remindertext {
+  position: absolute;
+  top: 12vw;
+  left: 2.2vw;
+  right: 2.2vw;
+  bottom: 2.2vw;
+  /* Desktop: keep text modest */
+  font-size: clamp(0.9rem, 0.9vw, 1.1rem);
+  line-height: 1.28;
+  text-align: center;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Bold headline and subtext scale relative to .remindertext */
+.remindertext b {
+  display: block;
+  font-weight: 700;
+  /* slightly larger than parent, scales with parent font-size */
+  font-size: 1.25em;
+  line-height: 1.1;
+  margin-bottom: 0.6em;
+}
+.remindertext .we-have-sent {
+  display: block;
+  font-size: 0.95em;
+  line-height: 1.35;
+}
+
+.image-6-icon {
+  position: absolute;
+  top: 1.4vw;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8.4vw;
+  height: 8.4vw;
+  object-fit: cover;
+}
+
+@media (max-width: 1024px) {
+  .frame-child {
+    height: 42vw;
+  }
+
+  .success {
+    top: 8vw;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    font-size: 10vw;
+    line-height: 1;
+  }
+
+  .image-1-icon {
+    top: 5vw;
+    left: 5vw;
+    width: 14vw;
+    height: 14vw;
+  }
+
+  .image-2-icon {
+    top: 5vw;
+    right: 5vw;
+    width: 13vw;
+    height: 14vw;
+  }
+
+  .reminderrectangle-parent {
+    top: 21vw;
+    bottom: 24.5vw;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 76vw;
+    height: auto;
+    font-size: 4.2vw;
+  }
+
+  .reminderrectangle {
+    width: 100%;
+    height: 100%;
+    border-radius: 2vw;
+  }
+
+  .image-6-icon {
+    top: 3vw;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 13vw;
+    height: 13vw;
+  }
+
+  .remindertext {
+    top: 19vw;
+    left: 5vw;
+    right: 5vw;
+    bottom: 3vw;
+    /* Medium screens: moderate sizing */
+    font-size: clamp(1.0rem, 2.2vw, 1.4rem);
+    line-height: 1.32;
+  }
+
+  .we-have-sent {
+    font-size: 0.95em;
+  }
+  .rectangle-group {
+    height: 9vw;
+    font-size: 2vw;
+  }
+
+  .group-child {
+    height: 9vw;
+  }
+
+  .all-rights-reserved {
+    top: 50%;
+    transform: translateY(-50%);
+    left: 5vw;
+  }
+}
+
+@media (max-width: 640px) {
+  .frame-child {
+    height: 58vw;
+  }
+
+  .success {
+    top: 14vw;
+    font-size: 14vw;
+  }
+
+  .image-1-icon,
+  .image-2-icon {
+    top: 8vw;
+    width: 18vw;
+    height: 18vw;
+  }
+
+  .reminderrectangle-parent {
+    top: 32vw;
+    bottom: 34vw;
+    width: 86vw;
+    height: auto;
+    font-size: 5.2vw;
+  }
+
+  .image-6-icon {
+    top: 5vw;
+    width: 18vw;
+    height: 18vw;
+  }
+
+  .remindertext {
+    top: 26.5vw;
+    left: 6vw;
+    right: 6vw;
+    bottom: 3.5vw;
+    /* Small screens: reduced sizing to avoid overly large text */
+    font-size: clamp(1.05rem, 4vw, 1.8rem);
+    line-height: 1.28;
+  }
+  .we-have-sent {
+    font-size: 0.95em;
+  }
+  .rectangle-group {
+    height: 13vw;
+    font-size: 3.2vw;
+  }
+
+  .group-child {
+    height: 13vw;
+  }
+}
+
+/* Target displays with ~16:10 aspect ratio (wider-than-tall laptops) */
+@media (min-aspect-ratio: 16/10) and (max-aspect-ratio: 16/9) {
+  .remindertext {
+    /* increase base size for 16:10 screens where vw-based scaling may feel small */
+    font-size: clamp(1.0rem, 2.2vw, 1.5rem);
+    line-height: 1.32;
+  }
+}
+/* Target medium-wide laptop widths (e.g., 1280–1700px) like 1680×900 — increase modestly
+   This avoids scaling up across all 16:9 screens (e.g., 1920×1080) which felt too large. */
+@media (min-width: 1280px) and (max-width: 1700px) {
+  .remindertext {
+    font-size: clamp(1.15rem, 2.4vw, 1.8rem);
+    line-height: 1.32;
+  }
+}

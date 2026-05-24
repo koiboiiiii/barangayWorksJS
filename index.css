@@ -1,0 +1,666 @@
+.welcome {
+  	width: 100%;
+  	height: 100vh;
+  	min-height: fit-content;
+  	position: relative;
+  	background-color: #fff;
+  	overflow-y: auto;
+  	overflow-x: hidden;
+  	text-align: center;
+  	font-size: 5.36vw;
+  	color: #f5f5f5;
+  	font-family: 'Cal Sans';
+}
+.rectangle-parent {
+  	position: absolute;
+  	top: 0;
+  	left: 0;
+  	width: 100%;
+  	max-width: 100vw;
+  	height: 53.6vw;
+  	overflow: hidden;
+  	text-align: left;
+  	color: #56a8e7;
+  	font-family: 'Bebas Neue';
+}
+.frame-child {
+  	position: absolute;
+  	width: 100%;
+  	top: 0;
+  	right: 0;
+  	left: 0;
+  	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+  	height: 14.52vw;
+}
+.barangay-appointment-schedulin {
+  	position: absolute;
+  	top: 16.96vw;
+  	left: 3.39vw;
+  	letter-spacing: -0.92px;
+  	line-height: 79.64px;
+  	display: inline-block;
+  	width: 25vw;
+  	height: 14.1vw;
+  	font-size: 5.36vw;
+}
+.image-1-icon {
+  	position: absolute;
+  	top: 3.33vw;
+  	left: 3.39vw;
+  	width: 9.52vw;
+  	height: 9.52vw;
+  	object-fit: cover;
+}
+.image-2-icon {
+  	position: absolute;
+  	top: 3.33vw;
+  	right: 4.58vw;
+  	width: 8.63vw;
+  	height: auto;
+  	object-fit: cover;
+}
+.rectangle-group {
+  	position: absolute;
+  	width: 100%;
+  	top: 48.21vw;
+  	right: 0;
+  	left: 0;
+  	height: 5.36vw;
+  	font-size: 0.95vw;
+  	color: #f5f5f5;
+  	font-family: 'Cal Sans';
+}
+.group-child {
+  	position: absolute;
+  	width: 100%;
+  	top: 0;
+  	right: 0;
+  	left: 0;
+  	background-color: #00579a;
+  	height: 5.36vw;
+}
+.all-rights-reserved {
+  	position: absolute;
+  	top: 2.2vw;
+  	left: 3.39vw;
+  	line-height: 100%;
+}
+.btnsetapp {
+  	position: absolute;
+  	top: 35.5vw;
+  	left: 3.39vw;
+  	border-radius: 1.2vw;
+  	background-color: #1d88d9;
+  	width: 15.6vw;
+  	height: 4.64vw;
+  	overflow: hidden;
+  	display: flex;
+  	align-items: center;
+  	justify-content: center;
+  	padding: 0.7vw;
+  	box-sizing: border-box;
+  	font-size: 1.55vw;
+  	color: #f5f5f5;
+  	cursor: pointer;
+}
+.set-an-appointment {
+  	position: relative;
+  	line-height: 100%;
+}
+.btnadmin {
+  	position: absolute;
+  	top: 3.33vw;
+  	right: 14.05vw;
+  	border-radius: 0.86vw;
+  	background-color: rgba(29, 136, 217, 0);
+  	border: 0.13vw solid #fff;
+  	box-sizing: border-box;
+  	width: 12.92vw;
+  	height: 3.33vw;
+  	overflow: hidden;
+  	display: flex;
+  	align-items: center;
+  	justify-content: center;
+  	padding: 0.52vw;
+  	font-size: 1.12vw;
+  	color: #f5f5f5;
+  	cursor: pointer;
+}
+.rectangle-container {
+  	position: absolute;
+  	top: 16.43vw;
+  	right: 3.63vw;
+  	width: 46.07vw;
+  	height: 24.52vw;
+  	overflow: hidden;
+  	font-size: 0.89vw;
+  	color: #000;
+}
+.frame-item {
+  	position: absolute;
+  	top: 0;
+  	left: 0;
+  	border-radius: 1.2vw;
+  	background-color: #c7dfff;
+  	width: 46.07vw;
+  	height: 24.52vw;
+  	opacity: 0.61;
+}
+.paper-2-icon {
+  	position: absolute;
+  	top: 10.77vw;
+  	right: 14.4vw;
+  	width: 5.3vw;
+  	height: 6.79vw;
+  	object-fit: cover;
+}
+.paper-3-icon {
+  	position: absolute;
+  	top: 11.49vw;
+  	left: 15.12vw;
+  	width: 6.79vw;
+  	height: 6.19vw;
+  	object-fit: cover;
+}
+.paper-1-icon {
+  	position: absolute;
+  	top: 10.54vw;
+  	left: 5.71vw;
+  	width: 5.6vw;
+  	height: 7.26vw;
+  	object-fit: cover;
+}
+.more-icon {
+  	position: absolute;
+  	top: 13.88vw;
+  	right: 5.89vw;
+  	width: 5.36vw;
+  	height: 1.43vw;
+  	object-fit: cover;
+}
+.barangay-services {
+  	position: absolute;
+  	top: 2.08vw;
+  	left: 10.54vw;
+  	font-size: 3.57vw;
+  	text-decoration: underline;
+  	letter-spacing: -0.92px;
+  	line-height: 79.64px;
+  	font-family: 'Bebas Neue';
+  	color: #56a8e7;
+  	display: inline-block;
+  	width: 25vw;
+  	height: 4.7vw;
+}
+.complaint-letter {
+  	position: absolute;
+  	right: 14.52vw;
+  	bottom: 3.57vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 5vw;
+}
+.and-more {
+  	position: absolute;
+  	right: 6.07vw;
+  	bottom: 4.46vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 5vw;
+}
+.cedula {
+  	position: absolute;
+  	bottom: 4.58vw;
+  	left: 15.06vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 6.9vw;
+}
+.barangay-clearance {
+  	position: absolute;
+  	bottom: 3.57vw;
+  	left: 5.83vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 5.36vw;
+}
+.frame-div {
+  	position: absolute;
+  	top: 53.6vw;
+  	left: 0;
+  	width: 100%;
+  	max-width: 100vw;
+  	height: 63.63vw;
+  	overflow: hidden;
+  	font-size: 1.79vw;
+  	color: #000;
+}
+.frame-inner {
+  	position: absolute;
+  	width: 100%;
+  	top: 0;
+  	right: 0;
+  	left: 0;
+  	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+  	height: 43.21vw;
+}
+.rectangle-div {
+  	position: absolute;
+  	width: 100%;
+  	top: 57.14vw;
+  	right: 0;
+  	left: 0;
+  	background-color: #d9d9d9;
+  	height: 6.49vw;
+}
+.click-here-for {
+  	position: absolute;
+  	top: 59.64vw;
+  	left: 3.69vw;
+  	font-size: 1.49vw;
+  	text-decoration: underline;
+  	line-height: 100%;
+  	color: #0090ff;
+}
+.btnclearance {
+  	position: absolute;
+  	width: 13.81%;
+  	top: 12.43vw;
+  	right: 79.82%;
+  	left: 6.37%;
+  	height: 16.43vw;
+  	overflow: hidden;
+  	cursor: pointer;
+}
+.btnclearance-child {
+  	position: absolute;
+  	top: 0;
+  	left: 0;
+  	border-radius: 1.2vw;
+  	background-color: #d9d9d9;
+  	width: 100%;
+  	height: 100%;
+  	opacity: 0.5;
+}
+.paper-1-icon2 {
+  	position: absolute;
+  	top: 2.08vw;
+  	left: 4.1vw;
+  	width: 5.6vw;
+  	height: 7.26vw;
+  	object-fit: cover;
+}
+.btnresidency {
+  	position: absolute;
+  	width: 13.81%;
+  	top: 31.25vw;
+  	right: 65.36%;
+  	left: 20.83%;
+  	height: 16.43vw;
+  	overflow: hidden;
+  	cursor: pointer;
+}
+.image-3-icon {
+  	position: absolute;
+  	top: 1.73vw;
+  	left: 3.16vw;
+  	width: 7.5vw;
+  	height: 9.29vw;
+  	object-fit: cover;
+}
+.certificate-of-residency {
+  	position: absolute;
+  	bottom: 1.67vw;
+  	left: 0.89vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 11.96vw;
+}
+.btnindigency {
+  	position: absolute;
+  	width: 13.81%;
+  	top: 31.25vw;
+  	right: 35.71%;
+  	left: 50.48%;
+  	height: 16.43vw;
+  	overflow: hidden;
+  	cursor: pointer;
+}
+.image-4-icon {
+  	position: absolute;
+  	top: 1.73vw;
+  	left: 3.16vw;
+  	width: 7.5vw;
+  	height: 8.87vw;
+  	object-fit: cover;
+}
+.btnblotter {
+  	position: absolute;
+  	width: 13.81%;
+  	top: 12.43vw;
+  	right: 21.01%;
+  	left: 65.18%;
+  	height: 16.43vw;
+  	overflow: hidden;
+  	cursor: pointer;
+}
+.paper-4-icon {
+  	position: absolute;
+  	top: 2.32vw;
+  	right: 4.29vw;
+  	width: 5.3vw;
+  	height: 6.79vw;
+  	object-fit: cover;
+}
+.complaint-letter-blotter {
+  	position: absolute;
+  	bottom: 1.85vw;
+  	left: 0.89vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 11.96vw;
+}
+.btncedula {
+  	position: absolute;
+  	width: 13.81%;
+  	top: 12.43vw;
+  	right: 50.42%;
+  	left: 35.77%;
+  	height: 16.43vw;
+  	overflow: hidden;
+  	cursor: pointer;
+}
+.paper-4-icon2 {
+  	position: absolute;
+  	top: 3.15vw;
+  	left: 3.51vw;
+  	width: 6.79vw;
+  	height: 6.19vw;
+  	object-fit: cover;
+}
+.cedula2 {
+  	position: absolute;
+  	bottom: 3.63vw;
+  	left: 0.89vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 11.96vw;
+}
+.btncommunity {
+  	position: absolute;
+  	width: 13.81%;
+  	top: 31.25vw;
+  	right: 6.07%;
+  	left: 80.12%;
+  	height: 16.43vw;
+  	overflow: hidden;
+  	cursor: pointer;
+}
+.image-5-icon {
+  	position: absolute;
+  	top: 1.31vw;
+  	left: 1.37vw;
+  	width: 11.01vw;
+  	height: 8.33vw;
+  	object-fit: cover;
+}
+.community-assistance-request {
+  	position: absolute;
+  	bottom: 0.65vw;
+  	left: 0.89vw;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 11.96vw;
+}
+.barangay-services2 {
+  	position: absolute;
+  	top: 2.14vw;
+  	left: 33.21vw;
+  	font-size: 5.36vw;
+  	letter-spacing: -0.92px;
+  	line-height: 79.64px;
+  	font-family: 'Bebas Neue';
+  	color: #d5e8f6;
+  	display: inline-block;
+  	width: 33.57vw;
+  	height: 5.12vw;
+}
+
+* {
+  	margin: 0;
+  	padding: 0;
+}
+
+html {
+  	width: 100%;
+  	overflow: hidden;
+}
+
+body {
+  	margin: 0;
+  	padding: 0;
+  	width: 100%;
+  	overflow: hidden;
+}
+
+@media (max-width: 480px) {
+  	.welcome {
+    		font-size: 6vw !important;
+    		height: auto !important;
+  	}
+
+  	.rectangle-parent {
+    		position: relative !important;
+    		width: 100% !important;
+    		max-width: 100vw !important;
+    		height: auto !important;
+    		top: 0 !important;
+    		left: 0 !important;
+  	}
+
+  	.barangay-appointment-schedulin {
+    		position: relative !important;
+    		font-size: 4vw !important;
+    		width: 90% !important;
+    		height: auto !important;
+    		top: auto !important;
+    		left: auto !important;
+    		margin: 2vw auto !important;
+  	}
+
+  	.image-1-icon,
+  	.image-2-icon,
+  	.paper-2-icon,
+  	.paper-3-icon,
+  	.paper-1-icon,
+  	.more-icon,
+  	.paper-1-icon2,
+  	.image-3-icon,
+  	.image-4-icon,
+  	.paper-4-icon,
+  	.paper-4-icon2,
+  	.image-5-icon {
+    		position: relative !important;
+    		max-width: 90vw !important;
+    		height: auto !important;
+    		margin: 1vw auto !important;
+    		display: block !important;
+    		top: auto !important;
+    		left: auto !important;
+    		right: auto !important;
+    		width: auto !important;
+    		object-fit: contain !important;
+  	}
+
+  	.rectangle-group {
+    		position: relative !important;
+    		width: 100% !important;
+    		height: auto !important;
+    		top: auto !important;
+    		padding: 2vw !important;
+  	}
+
+  	.btnsetapp {
+    		position: relative !important;
+    		width: 80vw !important;
+    		height: 6vw !important;
+    		font-size: 2vw !important;
+    		left: auto !important;
+    		top: auto !important;
+    		margin: 2vw auto !important;
+    		display: block !important;
+  	}
+
+  	.btnadmin {
+    		position: relative !important;
+    		font-size: 1.5vw !important;
+    		width: 80vw !important;
+    		height: 4vw !important;
+    		right: auto !important;
+    		top: auto !important;
+    		margin: 2vw auto !important;
+    		display: block !important;
+  	}
+
+  	.rectangle-container {
+    		position: relative !important;
+    		width: 90vw !important;
+    		height: auto !important;
+    		top: auto !important;
+    		right: auto !important;
+    		margin: 2vw auto !important;
+    		padding: 2vw !important;
+  	}
+
+  	.frame-item {
+    		display: none !important;
+  	}
+
+  	.paper-2-icon,
+  	.paper-3-icon,
+  	.paper-1-icon,
+  	.more-icon {
+    		position: relative !important;
+    		width: auto !important;
+    		height: auto !important;
+    		margin: 1vw auto !important;
+    		display: inline-block !important;
+    		right: auto !important;
+    		left: auto !important;
+    		top: auto !important;
+  	}
+
+  	.barangay-services {
+    		position: relative !important;
+    		font-size: 3.5vw !important;
+    		width: 90vw !important;
+    		height: auto !important;
+    		top: auto !important;
+    		left: auto !important;
+    		margin: 2vw auto !important;
+  	}
+
+  	.complaint-letter,
+  	.and-more,
+  	.cedula,
+  	.barangay-clearance {
+    		position: relative !important;
+    		display: inline-block !important;
+    		width: auto !important;
+    		right: auto !important;
+    		bottom: auto !important;
+    		left: auto !important;
+    		margin: 0.5vw !important;
+  	}
+
+  	.frame-div {
+    		position: relative !important;
+    		width: 100% !important;
+    		max-width: 100vw !important;
+    		height: auto !important;
+    		top: auto !important;
+    		left: 0 !important;
+    		overflow: visible !important;
+    		padding: 2vw !important;
+  	}
+
+  	.frame-inner {
+    		display: none !important;
+  	}
+
+  	.rectangle-div {
+    		position: relative !important;
+    		width: 100% !important;
+    		height: auto !important;
+    		top: auto !important;
+    		padding: 2vw !important;
+  	}
+
+  	.click-here-for {
+    		position: relative !important;
+    		top: auto !important;
+    		left: auto !important;
+    		font-size: 2vw !important;
+    		margin: 2vw !important;
+  	}
+
+  	.btnclearance,
+  	.btnresidency,
+  	.btnindigency,
+  	.btnblotter,
+  	.btncedula,
+  	.btncommunity {
+    		position: relative !important;
+    		width: 100% !important;
+    		height: 20vw !important;
+    		left: 0 !important;
+    		right: 0 !important;
+    		top: auto !important;
+    		margin: 1vw 0 !important;
+  	}
+
+  	.btnclearance-child {
+    		position: relative !important;
+    		width: 100% !important;
+    		height: 100% !important;
+  	}
+
+  	.paper-1-icon2,
+  	.image-3-icon,
+  	.image-4-icon,
+  	.paper-4-icon,
+  	.paper-4-icon2,
+  	.image-5-icon {
+    		position: relative !important;
+    		top: auto !important;
+    		left: auto !important;
+    		right: auto !important;
+    		width: auto !important;
+    		height: auto !important;
+    		margin: 1vw auto !important;
+    		display: inline-block !important;
+  	}
+
+  	.certificate-of-residency,
+  	.complaint-letter-blotter,
+  	.cedula2,
+  	.community-assistance-request {
+    		position: relative !important;
+    		bottom: auto !important;
+    		left: auto !important;
+    		width: auto !important;
+    		font-size: 1.5vw !important;
+    		margin: 0.5vw !important;
+  	}
+
+  	.barangay-services2 {
+    		position: relative !important;
+    		top: auto !important;
+    		left: auto !important;
+    		font-size: 4vw !important;
+    		width: auto !important;
+    		height: auto !important;
+    		margin: 2vw auto !important;
+    		display: block !important;
+  	}
+}

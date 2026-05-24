@@ -1,0 +1,17 @@
+
+body {
+  	margin: 0;
+  	line-height: normal;
+}
+
+/* Global image scaling defaults to reduce aliasing and preserve clarity */
+img {
+	max-width: 100%;
+	height: auto;
+	backface-visibility: hidden;
+	-webkit-backface-visibility: hidden;
+	transform: translateZ(0);
+	-webkit-transform: translateZ(0);
+	image-rendering: auto !important;
+}
+
