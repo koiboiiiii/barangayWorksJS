@@ -1,0 +1,301 @@
+* {
+  	margin: 0;
+  	padding: 0;
+}
+
+body {
+  	margin: 0;
+  	padding: 0;
+}
+.admindashboard {
+  	width: 100%;
+  	height: 2700px;
+  	position: relative;
+  	background-color: #fff;
+  	overflow: hidden;
+  	text-align: center;
+  	font-size: 30px;
+  	color: #000;
+  	font-family: 'Cal Sans';
+}
+.rectangle-parent {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	width: 1680px;
+  	height: 900px;
+  	overflow: hidden;
+  	text-align: left;
+  	font-size: 90px;
+  	color: #56a8e7;
+  	font-family: 'Bebas Neue';
+}
+.frame-child {
+  	position: absolute;
+  	width: 100%;
+  	top: 0px;
+  	right: 0px;
+  	left: 0px;
+  	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+  	height: 244px;
+}
+.barangay-appointment-schedulin-container {
+  	position: absolute;
+  	top: 285px;
+  	left: 57px;
+  	letter-spacing: -0.92px;
+  	line-height: 79.64px;
+  	display: inline-block;
+  	width: 420px;
+  	height: 310px;
+}
+.admin-access {
+  	font-size: 45px;
+}
+.image-1-icon {
+  	position: absolute;
+  	top: 56px;
+  	left: 57px;
+  	width: 160px;
+  	height: 160px;
+  	object-fit: cover;
+}
+.image-2-icon {
+  	position: absolute;
+  	top: 56px;
+  	left: 1458px;
+  	width: 145px;
+  	height: 160px;
+  	object-fit: cover;
+}
+.rectangle-group {
+  	position: absolute;
+  	width: 100%;
+  	top: 810px;
+  	right: 0px;
+  	left: 0px;
+  	height: 90px;
+  	font-size: 16px;
+  	color: #f5f5f5;
+  	font-family: 'Cal Sans';
+}
+.group-child {
+  	position: absolute;
+  	width: 100%;
+  	top: 0px;
+  	right: 0px;
+  	left: 0px;
+  	background-color: #00579a;
+  	height: 90px;
+}
+.all-rights-reserved {
+  	position: absolute;
+  	top: 37px;
+  	left: 57px;
+  	line-height: 100%;
+}
+.rectangle-container {
+  	position: absolute;
+  	top: 285px;
+  	right: 77px;
+  	width: 800px;
+  	height: 412px;
+  	overflow: hidden;
+  	color: #454444;
+}
+.frame-item {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	border-radius: 20px;
+  	background-color: #c7dfff;
+  	width: 800px;
+  	height: 412px;
+  	opacity: 0.61;
+}
+.admin-tools {
+  	position: absolute;
+  	top: 0px;
+  	left: 190px;
+  	font-size: 60px;
+  	text-decoration: underline;
+  	letter-spacing: -0.92px;
+  	line-height: 79.64px;
+  	font-family: 'Bebas Neue';
+  	color: #56a8e7;
+  	display: inline-block;
+  	width: 420px;
+  	height: 79px;
+}
+.btnmanageaccess {
+  	position: absolute;
+  	top: 104px;
+  	left: 23px;
+  	width: 232px;
+  	height: 276px;
+  	overflow: hidden;
+}
+.btnmanageaccess-child {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	border-radius: 20px;
+  	background-color: #56a8e7;
+  	width: 232px;
+  	height: 276px;
+  	opacity: 0.5;
+}
+.avatar-icon {
+  	position: absolute;
+  	top: 26px;
+  	left: 51px;
+  	width: 130px;
+  	height: 130px;
+  	object-fit: cover;
+}
+.manage-admin-users {
+  	position: absolute;
+  	bottom: 31px;
+  	left: 15px;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 201px;
+}
+.btnschedules {
+  	position: absolute;
+  	top: 104px;
+  	left: 545px;
+  	width: 232px;
+  	height: 276px;
+  	overflow: hidden;
+}
+.sched-icon {
+  	position: absolute;
+  	top: 35px;
+  	left: 62px;
+  	width: 122px;
+  	height: 122px;
+  	object-fit: cover;
+}
+.btnclearance {
+  	position: absolute;
+  	top: 104px;
+  	left: 284px;
+  	width: 232px;
+  	height: 276px;
+  	overflow: hidden;
+}
+.db-icon {
+  	position: absolute;
+  	top: 35px;
+  	left: 69px;
+  	width: 94px;
+  	height: 122px;
+  	object-fit: cover;
+}
+.frame-div {
+  	position: absolute;
+  	top: 900px;
+  	left: 0px;
+  	width: 1680px;
+  	height: 900px;
+  	overflow: hidden;
+}
+.frame-inner {
+  	position: absolute;
+  	width: 100%;
+  	top: 0px;
+  	right: 0px;
+  	left: 0px;
+  	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+  	height: 726px;
+}
+.btnpermission {
+  	position: absolute;
+  	top: 287px;
+  	left: 594px;
+  	width: 232px;
+  	height: 276px;
+  	overflow: hidden;
+}
+.btnpermission-child {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	border-radius: 20px;
+  	background-color: #d9d9d9;
+  	width: 232px;
+  	height: 276px;
+  	opacity: 0.5;
+}
+.permission-icon {
+  	position: absolute;
+  	top: 37px;
+  	left: 62px;
+  	width: 108px;
+  	height: 122px;
+  	object-fit: cover;
+}
+.btnnewuser {
+  	position: absolute;
+  	top: 287px;
+  	left: 853px;
+  	width: 232px;
+  	height: 276px;
+  	overflow: hidden;
+}
+.newuser-icon {
+  	position: absolute;
+  	top: 39px;
+  	left: 67px;
+  	width: 98px;
+  	height: 99px;
+  	object-fit: cover;
+}
+.manage-admin-users2 {
+  	position: absolute;
+  	top: 52px;
+  	left: 482px;
+  	font-size: 90px;
+  	letter-spacing: -0.92px;
+  	line-height: 79.64px;
+  	font-family: 'Bebas Neue';
+  	color: #d5e8f6;
+  	display: inline-block;
+  	width: 715px;
+  	height: 86px;
+}
+.rectangle-parent2 {
+  	position: absolute;
+  	top: 1800px;
+  	left: 0px;
+  	width: 1680px;
+  	height: 900px;
+  	overflow: hidden;
+}
+.dbimport-icon {
+  	position: absolute;
+  	top: 41px;
+  	left: 61px;
+  	width: 117px;
+  	height: 122px;
+  	object-fit: cover;
+}
+.import-csv-file {
+  	position: absolute;
+  	bottom: 22px;
+  	left: 15px;
+  	line-height: 100%;
+  	display: inline-block;
+  	width: 201px;
+  	height: 69px;
+}
+.dbexport-icon {
+  	position: absolute;
+  	top: 41px;
+  	left: 66px;
+  	width: 100px;
+  	height: 122px;
+  	object-fit: cover;
+}
+

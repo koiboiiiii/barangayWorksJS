@@ -1,256 +1,444 @@
 * {
-  	margin: 0;
-  	padding: 0;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	width: 100%;
+	min-height: 100%;
 }
 
 body {
-  	margin: 0;
-  	padding: 0;
+	margin: 0;
+	padding: 0;
+	line-height: normal;
+	background: #fff;
+	overflow-x: hidden;
 }
+
+img {
+	max-width: 100%;
+	height: auto;
+	backface-visibility: hidden;
+	-webkit-backface-visibility: hidden;
+	transform: translateZ(0);
+	-webkit-transform: translateZ(0);
+	image-rendering: auto !important;
+}
+
 .adminlogin {
-  	width: 100%;
-  	height: 900px;
-  	position: relative;
-  	background-color: #fff;
-  	overflow: hidden;
-  	text-align: left;
-  	font-size: 90px;
-  	color: #56a8e7;
-  	font-family: 'Bebas Neue';
+	width: 100%;
+	min-height: 100svh;
+	position: relative;
+	background-color: #fff;
+	overflow-x: hidden;
+	overflow-y: auto;
+	text-align: left;
+	font-size: clamp(3rem, 5vw, 90px);
+	color: #56a8e7;
+	font-family: 'Bebas Neue';
 }
+
 .rectangle-parent {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	width: 1680px;
-  	height: 900px;
-  	overflow: hidden;
+	position: relative;
+	width: 100%;
+	min-height: 100svh;
+	overflow: hidden;
 }
+
 .frame-child {
-  	position: absolute;
-  	width: 100%;
-  	top: 0px;
-  	right: 0px;
-  	left: 0px;
-  	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
-  	height: 244px;
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	width: 100%;
+	height: clamp(180px, 27vh, 244px);
+	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
 }
+
 .barangay-appointment-schedulin-container {
-  	position: absolute;
-  	top: 285px;
-  	left: 57px;
-  	letter-spacing: -0.92px;
-  	line-height: 79.64px;
-  	display: inline-block;
-  	width: 420px;
-  	height: 314px;
+	position: absolute;
+	top: clamp(170px, 31vh, 285px);
+	left: clamp(16px, 3.4vw, 57px);
+	width: min(28vw, 420px);
+	max-width: 420px;
+	display: inline-block;
+	letter-spacing: -0.92px;
+	line-height: 0.88;
+	font-size: clamp(2.8rem, 4.8vw, 5.6rem);
 }
+
 .admin-access {
-  	font-size: 45px;
+	font-size: 0.58em;
 }
+
 .image-1-icon {
-  	position: absolute;
-  	top: 56px;
-  	left: 57px;
-  	width: 160px;
-  	height: 160px;
-  	object-fit: cover;
+	position: absolute;
+	top: clamp(28px, 6vh, 56px);
+	left: clamp(16px, 3.4vw, 57px);
+	width: clamp(96px, 10vw, 160px);
+	height: auto;
+	aspect-ratio: 1 / 1;
+	object-fit: cover;
 }
+
 .image-2-icon {
-  	position: absolute;
-  	top: 56px;
-  	left: 1458px;
-  	width: 145px;
-  	height: 160px;
-  	object-fit: cover;
+	position: absolute;
+	top: clamp(28px, 6vh, 56px);
+	right: clamp(16px, 3.4vw, 57px);
+	left: auto;
+	width: clamp(96px, 9vw, 145px);
+	height: auto;
+	aspect-ratio: 145 / 160;
+	object-fit: cover;
 }
+
 .rectangle-group {
-  	position: absolute;
-  	width: 100%;
-  	top: 810px;
-  	right: 0px;
-  	left: 0px;
-  	height: 90px;
-  	font-size: 16px;
-  	color: #f5f5f5;
-  	font-family: 'Cal Sans';
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: clamp(64px, 10vh, 90px);
+	font-size: clamp(0.75rem, 1vw, 1rem);
+	color: #f5f5f5;
+	font-family: 'Cal Sans';
 }
+
 .group-child {
-  	position: absolute;
-  	width: 100%;
-  	top: 0px;
-  	right: 0px;
-  	left: 0px;
-  	background-color: #00579a;
-  	height: 90px;
+	position: absolute;
+	inset: 0;
+	background-color: #00579a;
 }
+
 .all-rights-reserved {
-  	position: absolute;
-  	top: 37px;
-  	left: 57px;
-  	line-height: 100%;
+	position: absolute;
+	top: 50%;
+	left: clamp(16px, 3.4vw, 57px);
+	line-height: 1;
+	transform: translateY(-50%);
 }
+
 .rectangle-container {
-  	position: absolute;
-  	top: 276px;
-  	right: 61px;
-  	width: 774px;
-  	height: 412px;
-  	overflow: hidden;
-  	text-align: center;
-  	font-size: 16px;
-  	color: #49454f;
-  	font-family: Roboto;
+	position: absolute;
+	top: clamp(220px, 30vh, 276px);
+	right: clamp(16px, 3.6vw, 61px);
+	width: min(46vw, 774px);
+	aspect-ratio: 774 / 412;
+	overflow: hidden;
+	text-align: center;
+	font-size: clamp(0.75rem, 1vw, 16px);
+	color: #49454f;
+	font-family: Roboto;
 }
+
 .frame-item {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	border-radius: 20px;
-  	background-color: #c7dfff;
-  	width: 774px;
-  	height: 412px;
-  	opacity: 0.61;
+	position: absolute;
+	inset: 0;
+	border-radius: clamp(16px, 1.2vw, 20px);
+	background-color: #c7dfff;
+	opacity: 0.61;
 }
+
 .enter-admin-login {
-  	position: absolute;
-  	top: 35px;
-  	left: 177px;
-  	font-size: 60px;
-  	text-decoration: underline;
-  	letter-spacing: -0.92px;
-  	line-height: 79.64px;
-  	font-family: 'Bebas Neue';
-  	color: #56a8e7;
-  	display: inline-block;
-  	width: 420px;
-  	height: 79px;
+	position: absolute;
+	top: 8.5%;
+	left: 22.9%;
+	width: 54.3%;
+	height: 19.2%;
+	font-size: clamp(2.2rem, 3.6vw, 60px);
+	text-decoration: underline;
+	letter-spacing: -0.92px;
+	line-height: 0.9;
+	font-family: 'Bebas Neue';
+	color: #56a8e7;
+	display: inline-block;
 }
+
 .btnlogin {
-  	position: absolute;
-  	top: 178px;
-  	left: 516px;
-  	border-radius: 20px;
-  	background-color: #1d88d9;
-  	width: 162px;
-  	height: 78px;
-  	overflow: hidden;
-  	display: flex;
-  	align-items: center;
-  	justify-content: center;
-  	padding: 12px;
-  	box-sizing: border-box;
-  	font-size: 26px;
-  	color: #f5f5f5;
-  	font-family: 'Cal Sans';
+	position: absolute;
+	top: 43.2%;
+	left: 66.7%;
+	width: 20.9%;
+	height: 18.9%;
+	border-radius: clamp(16px, 1.2vw, 20px);
+	background-color: #1d88d9;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: clamp(8px, 1vw, 12px);
+	box-sizing: border-box;
+	font-size: clamp(1rem, 1.5vw, 26px);
+	color: #f5f5f5;
+	font-family: 'Cal Sans';
 }
+
 .login {
-  	position: relative;
-  	line-height: 100%;
+	position: relative;
+	line-height: 1;
 }
+
 .text-field {
-  	position: absolute;
-  	top: 178px;
-  	left: 66px;
-  	border-radius: 4px 4px 0px 0px;
-  	width: 369px;
-  	height: 56px;
-  	display: flex;
-  	flex-direction: column;
-  	align-items: flex-start;
-  	isolation: isolate;
-  	text-align: left;
+	position: absolute;
+	top: 43.2%;
+	left: 8.5%;
+	width: 47.7%;
+	height: 13.6%;
+	border-radius: 4px 4px 0 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	isolation: isolate;
+	text-align: left;
 }
-.text-field2 {
-  	align-self: stretch;
-  	flex: 1;
-  	border-radius: 4px 4px 0px 0px;
-  	background-color: #e6e0e9;
-  	display: flex;
-  	flex-direction: column;
-  	align-items: flex-start;
-  	z-index: 0;
-  	flex-shrink: 0;
-}
-.state-layer {
-  	align-self: stretch;
-  	flex: 1;
-  	border-radius: 4px 4px 0px 0px;
-  	display: flex;
-  	align-items: flex-start;
-  	padding: 4px 0px 4px 16px;
-  	gap: 4px;
-}
-.content {
-  	height: 48px;
-  	flex: 1;
-  	display: flex;
-  	flex-direction: column;
-  	align-items: flex-start;
-  	justify-content: center;
-  	padding: 4px 0px;
-  	box-sizing: border-box;
-}
-.label-text-container {
-  	width: 31px;
-  	display: flex;
-  	align-items: center;
-}
-.label-text {
-  	width: 93px;
-  	position: relative;
-  	letter-spacing: 0.4px;
-  	line-height: 16px;
-  	display: inline-block;
-  	flex-shrink: 0;
-}
-.tfusername {
-  	align-self: stretch;
-  	height: 24px;
-  	display: flex;
-  	align-items: center;
-}
-.erasefirst {
-  	height: 48px;
-  	width: 48px;
-  	display: none;
-  	align-items: center;
-  	justify-content: center;
-}
-.active-indicator {
-  	align-self: stretch;
-  	height: 1px;
-  	position: relative;
-  	border-top: 1px solid #49454f;
-  	box-sizing: border-box;
-  	z-index: 1;
-  	flex-shrink: 0;
-}
-.supporting-text {
-  	width: 100%;
-  	height: 20px;
-  	margin: 0 !important;
-  	position: absolute;
-  	right: 0px;
-  	bottom: -20px;
-  	left: 0px;
-  	display: flex;
-  	align-items: flex-start;
-  	padding: 4px 16px 0px;
-  	box-sizing: border-box;
-  	z-index: 2;
-  	flex-shrink: 0;
-}
+
 .text-field3 {
-  	position: absolute;
-  	top: 262px;
-  	left: 66px;
-  	border-radius: 4px 4px 0px 0px;
-  	width: 369px;
-  	height: 56px;
-  	display: flex;
-  	flex-direction: column;
-  	align-items: flex-start;
-  	isolation: isolate;
-  	text-align: left;
+	position: absolute;
+	top: 63.6%;
+	left: 8.5%;
+	width: 47.7%;
+	height: 13.6%;
+	border-radius: 4px 4px 0 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	isolation: isolate;
+	text-align: left;
+}
+
+.text-field2 {
+	align-self: stretch;
+	flex: 1;
+	border-radius: 4px 4px 0 0;
+	background-color: #e6e0e9;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	z-index: 0;
+	flex-shrink: 0;
+}
+
+.state-layer {
+	align-self: stretch;
+	flex: 1;
+	border-radius: 4px 4px 0 0;
+	display: flex;
+	align-items: flex-start;
+	position: relative;
+	padding: clamp(3px, 0.6vw, 4px) 0 clamp(3px, 0.6vw, 4px) clamp(12px, 1.1vw, 16px);
+	gap: 4px;
+}
+
+.content {
+	height: 48px;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	padding: 4px 0;
+	box-sizing: border-box;
+}
+
+.label-text-container {
+	width: auto;
+	display: flex;
+	align-items: center;
+}
+
+.label-text {
+	width: auto;
+	position: relative;
+	letter-spacing: 0.4px;
+	line-height: 16px;
+	display: inline-block;
+	flex-shrink: 0;
+	font-size: clamp(0.9rem, 1.1vw, 1rem);
+}
+
+.tfusername {
+	align-self: stretch;
+	height: 24px;
+	width: 100%;
+	border: 0;
+	background: transparent;
+	outline: none;
+	display: flex;
+	align-items: center;
+	cursor: text;
+	font: inherit;
+	color: #49454f;
+}
+
+.tfpassword {
+	align-self: stretch;
+	height: 24px;
+	width: 100%;
+	border: 0;
+	background: transparent;
+	outline: none;
+	display: flex;
+	align-items: center;
+	cursor: text;
+	font: inherit;
+	color: #49454f;
+}
+
+.tfusername::placeholder,
+.tfpassword::placeholder {
+	color: #6e6a72;
+}
+
+.eraseusername {
+	height: 48px;
+	width: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 48px;
+	border: 0;
+	background: transparent;
+	padding: 0;
+	position: relative;
+	z-index: 2;
+	appearance: none;
+	-webkit-appearance: none;
+	user-select: none;
+}
+
+.erasepassword {
+	height: 48px;
+	width: 48px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 48px;
+	border: 0;
+	background: transparent;
+	padding: 0;
+	position: relative;
+	z-index: 2;
+	appearance: none;
+	-webkit-appearance: none;
+	user-select: none;
+}
+
+.eraseusername img,
+.erasepassword img {
+	width: 24px;
+	height: 24px;
+	display: block;
+	pointer-events: none;
+}
+
+.active-indicator {
+	align-self: stretch;
+	height: 1px;
+	position: relative;
+	border-top: 1px solid #49454f;
+	box-sizing: border-box;
+	z-index: 1;
+	flex-shrink: 0;
+}
+
+.supporting-text {
+	width: 100%;
+	height: 20px;
+	margin: 0 !important;
+	position: absolute;
+	right: 0;
+	bottom: -20px;
+	left: 0;
+	display: flex;
+	align-items: flex-start;
+	padding: 4px 16px 0;
+	box-sizing: border-box;
+	z-index: 2;
+	flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+	.adminlogin {
+		overflow-y: auto;
+	}
+
+	.rectangle-parent {
+		min-height: 100svh;
+		overflow: visible;
+		padding-bottom: clamp(72px, 10vh, 90px);
+	}
+
+	.frame-child {
+		height: clamp(160px, 24vh, 220px);
+	}
+
+	.image-1-icon {
+		top: clamp(20px, 4vh, 40px);
+		width: clamp(72px, 18vw, 120px);
+	}
+
+	.image-2-icon {
+		top: clamp(20px, 4vh, 40px);
+		width: clamp(72px, 18vw, 120px);
+	}
+
+	.barangay-appointment-schedulin-container {
+		top: clamp(130px, 24vh, 220px);
+		left: clamp(16px, 5vw, 32px);
+		width: min(84vw, 420px);
+		font-size: clamp(2.4rem, 8vw, 4rem);
+		line-height: 0.92;
+	}
+
+	.rectangle-container {
+		top: clamp(300px, 44vh, 420px);
+		left: 50%;
+		right: auto;
+		transform: translateX(-50%);
+		width: min(92vw, 774px);
+	}
+
+	.rectangle-group {
+		position: relative;
+		top: auto;
+		bottom: auto;
+		margin-top: clamp(24px, 6vh, 48px);
+	}
+
+	.all-rights-reserved {
+		left: clamp(16px, 5vw, 32px);
+	}
+
+	.enter-admin-login {
+		font-size: clamp(2rem, 8vw, 48px);
+	}
+
+	.btnlogin {
+		font-size: clamp(0.9rem, 3.5vw, 20px);
+	}
+
+	.label-text {
+		font-size: clamp(0.82rem, 3vw, 0.95rem);
+	}
+}
+
+@media (max-width: 640px) {
+	.barangay-appointment-schedulin-container {
+		width: min(88vw, 360px);
+	}
+
+	.rectangle-container {
+		top: clamp(320px, 48vh, 460px);
+		width: min(94vw, 774px);
+	}
+
+	.btnlogin {
+		padding: 8px 10px;
+	}
+
+	.state-layer {
+		padding-left: 12px;
+	}
 }

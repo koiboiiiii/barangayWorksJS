@@ -540,6 +540,7 @@
   	max-width: 100%;
   	overflow: hidden;
   	max-height: 100%;
+	cursor: pointer;
 }
 .i-consent {
   	position: absolute;
@@ -548,6 +549,11 @@
   	line-height: 100%;
   	display: inline-block;
   	width: 6.36vw;
+	cursor: pointer;
+}
+
+.i-consent[data-checked='1'] {
+	font-weight: 700;
 }
 
 * {

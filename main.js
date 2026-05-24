@@ -88,6 +88,84 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (btnSuccess) setBtnSuccessEnabled(false);
 
+  // --- Admin login page behaviors ---
+  const isAdminLoginPage = !!document.querySelector('.adminlogin');
+  if (isAdminLoginPage) {
+    const usernameField = document.querySelector('.tfusername');
+    const passwordField = document.querySelector('.tfpassword');
+    const eraseUsername = document.querySelector('.eraseusername');
+    const erasePassword = document.querySelector('.erasepassword');
+
+    const prepareField = (field) => {
+      if (!field) return;
+      field.autocomplete = field.classList.contains('tfpassword') ? 'current-password' : 'username';
+      field.spellcheck = false;
+      field.style.cursor = 'text';
+    };
+
+    const setupEraseButton = (button, field) => {
+      if (!button || !field) return;
+      button.type = 'button';
+      button.setAttribute('role', 'button');
+      button.setAttribute('aria-label', 'Clear field');
+      button.style.cursor = 'pointer';
+      button.style.userSelect = 'none';
+
+      const syncButton = () => {
+        const hasValue = field.value.trim().length > 0;
+        button.style.display = hasValue ? 'flex' : 'none';
+      };
+
+      button.addEventListener('click', () => {
+        field.value = '';
+        syncButton();
+        field.focus();
+      });
+
+      field.addEventListener('input', syncButton);
+      field.addEventListener('blur', syncButton);
+      syncButton();
+    };
+
+    prepareField(usernameField);
+    prepareField(passwordField);
+    setupEraseButton(eraseUsername, usernameField);
+    setupEraseButton(erasePassword, passwordField);
+
+    const btnLoginAdmin = document.querySelector('.btnlogin');
+    const setBtnLoginEnabled = (enabled) => {
+      if (!btnLoginAdmin) return;
+      if (enabled) {
+        btnLoginAdmin.style.opacity = '1';
+        btnLoginAdmin.style.cursor = 'pointer';
+        btnLoginAdmin.style.pointerEvents = 'auto';
+        btnLoginAdmin.dataset.enabled = '1';
+      } else {
+        btnLoginAdmin.style.opacity = '0.5';
+        btnLoginAdmin.style.cursor = 'not-allowed';
+        btnLoginAdmin.style.pointerEvents = 'none';
+        delete btnLoginAdmin.dataset.enabled;
+      }
+    };
+
+    const updateLoginState = () => {
+      const u = usernameField && usernameField.value.trim();
+      const p = passwordField && passwordField.value.trim();
+      setBtnLoginEnabled(!!u && !!p);
+    };
+
+    if (usernameField) usernameField.addEventListener('input', updateLoginState);
+    if (passwordField) passwordField.addEventListener('input', updateLoginState);
+
+    if (btnLoginAdmin) {
+      // initialize state
+      updateLoginState();
+      btnLoginAdmin.addEventListener('click', () => {
+        if (btnLoginAdmin.dataset.enabled === '1') navigateWithFade('./admindashboard.html');
+      });
+    }
+  }
+
   // --- Calendar implementation ---
   const calendarRoot = document.querySelector('.calendar');
   if (calendarRoot) {
@@ -218,9 +296,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const consentDiv = document.querySelector('.consent'); if (consentDiv) consentDiv.style.overflowY = 'hidden';
     const checkboxIcon = document.querySelector('.checkbox-icon'); const iConsent = document.querySelector('.i-consent'); const rectangleContainer = document.querySelector('.rectangle-container');
+    const checkboxUncheckedSrc = './assets/checkbox.svg';
+    const checkboxCheckedSrc = './assets/checkboxticked.svg';
+    let consentChecked = false;
     const enableScroll = ()=>{ if (consentDiv) consentDiv.style.overflowY='auto'; if (rectangleContainer) rectangleContainer.scrollIntoView({ behavior:'smooth', block:'start' }); };
-    if (checkboxIcon){ checkboxIcon.addEventListener('click', enableScroll); checkboxIcon.style.cursor='pointer'; }
-    if (iConsent){ iConsent.addEventListener('click', enableScroll); iConsent.style.cursor='pointer'; }
+    const setConsentChecked = (checked) => {
+      consentChecked = checked;
+      if (checkboxIcon) checkboxIcon.src = checked ? checkboxCheckedSrc : checkboxUncheckedSrc;
+      if (iConsent) iConsent.dataset.checked = checked ? '1' : '0';
+    };
+    const toggleConsent = () => {
+      setConsentChecked(!consentChecked);
+      enableScroll();
+    };
+    if (checkboxIcon){ checkboxIcon.addEventListener('click', toggleConsent); checkboxIcon.style.cursor='pointer'; }
+    if (iConsent){ iConsent.addEventListener('click', toggleConsent); iConsent.style.cursor='pointer'; }
+    setConsentChecked(false);
 
     // editable input fields and erase buttons
     const inputFields = document.querySelectorAll('.tffirstname, .tfemail');
