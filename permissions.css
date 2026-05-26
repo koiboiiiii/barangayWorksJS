@@ -90,7 +90,7 @@ body {
 .btnapply {
 	position: absolute;
 	top: 27.02vw;
-	left: 37.38vw; /* moved to match newadmin.btnregister */
+	left: 37.38vw;
 	width: 12.38vw;
 	height: 4.64vw;
 	border-radius: 1.19vw;
@@ -105,11 +105,10 @@ body {
 	z-index: 1;
 }
 
-/* Back button on permissions page (matches newadmin.btnback position/style) */
 .btnback {
     position: absolute;
     top: 27.02vw;
-    left: 8.45vw; /* same as newadmin.btnback */
+    left: 8.45vw;
     border-radius: 1.19vw;
     background-color: #1d88d9;
     width: 12.38vw;
@@ -140,8 +139,10 @@ body {
 	border-radius: 0.95vw;
 	box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
 	background-color: #f7f2fa;
-	overflow: visible;
+	overflow-y: auto;
+	overflow-x: hidden;
 	display: flex;
+	flex-direction: column;
 	align-items: flex-start;
 	text-align: left;
 	font-size: clamp(0.9rem, 1.19vw, 20px);
@@ -150,10 +151,11 @@ body {
 	z-index: 2;
 }
 
+/* Each admin row inside menu */
 .admin1 {
 	position: relative;
 	width: 100%;
-	height: 4.99vw;
+	min-height: 4.99vw;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
@@ -161,6 +163,10 @@ body {
 	box-sizing: border-box;
 	isolation: isolate;
 	z-index: 3;
+	border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.admin1:last-child {
+	border-bottom: none;
 }
 
 .icon {
@@ -204,41 +210,22 @@ body {
 	z-index: 2;
 }
 
-.editadminname-icon {
-	position: absolute;
-	top: 1.62vw;
-	left: 10.1vw;
-	width: 0.88vw;
-	height: 0.88vw;
-	margin: 0 !important;
-	object-fit: contain;
-	object-position: center;
-	display: block;
-	opacity: 0;
-	transition: opacity 500ms ease;
-	pointer-events: none;
-	cursor: pointer;
-	z-index: 2;
-}
-
-.editadminname-icon.is-hover-visible {
-	opacity: 1;
-	pointer-events: auto;
-}
-
+/* Floating role options overlay */
 .role-dropdown {
-	position: absolute;
-	top: 4.99vw;
-	left: 0.85vw;
-	right: 0.85vw;
 	display: none;
+	position: fixed;
+	z-index: 9999;
+	background: #fff;
+	border: 1px solid #ddd;
+	border-radius: 0.85vw;
+	box-shadow: 0 8px 24px rgba(0,0,0,0.15);
 	flex-direction: column;
-	gap: 0.42vw;
-	padding: 0.42vw 0 0.56vw;
-	z-index: 4;
+	gap: 0.3vw;
+	padding: 0.56vw;
+	min-width: 14vw;
 }
 
-.menu.role-dropdown-open .role-dropdown {
+.role-dropdown.is-visible {
 	display: flex;
 }
 
@@ -280,6 +267,18 @@ body {
 
 .role-option-label {
 	line-height: 1;
+}
+
+/* Destructive option (delete) */
+.role-option-destructive {
+	color: #b00020;
+}
+.role-option-destructive .role-option-icon {
+	opacity: 0.95;
+}
+.role-option-destructive:hover,
+.role-option-destructive:focus-visible {
+	background: #fdecea;
 }
 
 @media (max-width: 900px) {

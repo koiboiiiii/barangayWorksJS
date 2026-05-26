@@ -2,16 +2,21 @@
   "name": "barangayworksjs",
   "version": "1.0.0",
   "private": true,
-  "main": "server.js",
+  "main": "controller/controller.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node -e \"require('./controller/controller').startServer()\" & sleep 2 && open http://localhost:3000",
+    "dev": "nodemon -e \"node -e 'require(\\\"./controller/controller\\\").startServer()'\""
   },
   "dependencies": {
+    "adm-zip": "^0.5.17",
+    "archiver": "^8.0.0",
     "cors": "^2.8.5",
+    "csv-parse": "^6.2.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "mssql": "^11.0.1"
+    "express-session": "^1.19.0",
+    "mssql": "^11.0.1",
+    "nodemailer": "^8.0.9"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

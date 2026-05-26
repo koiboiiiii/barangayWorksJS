@@ -1,6 +1,6 @@
 -- Admin hierarchy and permission seed for BarangayWorks
 -- Target DB: run this inside your application database (ex: barangayworks)
-
+USE [barangayworks];
 IF OBJECT_ID('dbo.admin_roles', 'U') IS NULL
 BEGIN
 	CREATE TABLE dbo.admin_roles (
@@ -32,6 +32,25 @@ IF COL_LENGTH('dbo.admin_users', 'password_plaintext') IS NULL
 BEGIN
 	ALTER TABLE dbo.admin_users
 	ADD password_plaintext NVARCHAR(255) NULL;
+END;
+
+-- Add barangay_id column for uniqueness checks (optional)
+IF COL_LENGTH('dbo.admin_users', 'barangay_id') IS NULL
+BEGIN
+	ALTER TABLE dbo.admin_users
+	ADD barangay_id NVARCHAR(100) NULL;
+END;
+
+-- Ensure an index for quick lookup on barangay_id (unique when not null)
+IF COL_LENGTH('dbo.admin_users', 'barangay_id') IS NOT NULL
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1 FROM sys.indexes i JOIN sys.objects o ON i.object_id = o.object_id
+		WHERE i.name = 'UX_admin_users_barangay_id' AND o.name = 'admin_users'
+	)
+	BEGIN
+		EXEC('CREATE UNIQUE INDEX UX_admin_users_barangay_id ON dbo.admin_users(barangay_id) WHERE barangay_id IS NOT NULL');
+	END;
 END;
 
 IF OBJECT_ID('dbo.admin_role_permissions', 'U') IS NULL
@@ -117,42 +136,179 @@ WHEN NOT MATCHED THEN
 		src.can_click_btnexport
 	);
 
--- Ensure a concrete Supervisor admin user exists
+-- Ensure Manager role exists
 IF NOT EXISTS (
 	SELECT 1
-	FROM dbo.admin_users
-	WHERE username = 'supervisor'
+	FROM dbo.admin_roles
+	WHERE role_name = 'Manager'
 )
 BEGIN
-	INSERT INTO dbo.admin_users (username, password_plaintext, display_name, email, role_id, is_active)
+	INSERT INTO dbo.admin_roles (role_name, description)
+	VALUES ('Manager', 'Can manage most features except admin user management and clearance.');
+END;
+
+DECLARE @ManagerRoleId INT;
+SELECT @ManagerRoleId = id
+FROM dbo.admin_roles
+WHERE role_name = 'Manager';
+
+-- Manager has NO access to btnpermission, btnimport, or btnexport
+MERGE dbo.admin_role_permissions AS target
+USING (
+	SELECT
+		@ManagerRoleId AS role_id,
+		CAST(1 AS BIT) AS can_click_btnmanageaccess,
+		CAST(1 AS BIT) AS can_click_btnschedules,
+		CAST(1 AS BIT) AS can_click_btnlogs,
+		CAST(1 AS BIT) AS can_click_btndbconfig,
+		CAST(0 AS BIT) AS can_click_btnpermission,
+		CAST(1 AS BIT) AS can_click_btnnewuser,
+		CAST(0 AS BIT) AS can_click_btnimport,
+		CAST(0 AS BIT) AS can_click_btnexport
+) AS src
+ON target.role_id = src.role_id
+WHEN MATCHED THEN UPDATE SET
+	can_click_btnmanageaccess = src.can_click_btnmanageaccess,
+	can_click_btnschedules = src.can_click_btnschedules,
+	can_click_btnlogs = src.can_click_btnlogs,
+	can_click_btndbconfig = src.can_click_btndbconfig,
+	can_click_btnpermission = src.can_click_btnpermission,
+	can_click_btnnewuser = src.can_click_btnnewuser,
+	can_click_btnimport = src.can_click_btnimport,
+	can_click_btnexport = src.can_click_btnexport,
+	updated_at = SYSUTCDATETIME()
+WHEN NOT MATCHED THEN
+	INSERT (
+		role_id,
+		can_click_btnmanageaccess,
+		can_click_btnschedules,
+		can_click_btnlogs,
+		can_click_btndbconfig,
+		can_click_btnpermission,
+		can_click_btnnewuser,
+		can_click_btnimport,
+		can_click_btnexport
+	)
 	VALUES (
-		'supervisor',
-		'Supervisor123!',
-		'Supervisor Admin',
-		'supervisor@barangayworks.local',
-		@SupervisorRoleId,
+		src.role_id,
+		src.can_click_btnmanageaccess,
+		src.can_click_btnschedules,
+		src.can_click_btnlogs,
+		src.can_click_btndbconfig,
+		src.can_click_btnpermission,
+		src.can_click_btnnewuser,
+		src.can_click_btnimport,
+		src.can_click_btnexport
+	);
+
+-- Ensure Officer role exists
+IF NOT EXISTS (
+	SELECT 1
+	FROM dbo.admin_roles
+	WHERE role_name = 'Officer'
+)
+BEGIN
+	INSERT INTO dbo.admin_roles (role_name, description)
+	VALUES ('Officer', 'Limited access: can only manage schedules and logs.');
+END;
+
+DECLARE @OfficerRoleId INT;
+SELECT @OfficerRoleId = id
+FROM dbo.admin_roles
+WHERE role_name = 'Officer';
+
+-- Officer can only click btnschedules and btnlogs
+MERGE dbo.admin_role_permissions AS target
+USING (
+	SELECT
+		@OfficerRoleId AS role_id,
+		CAST(0 AS BIT) AS can_click_btnmanageaccess,
+		CAST(1 AS BIT) AS can_click_btnschedules,
+		CAST(1 AS BIT) AS can_click_btnlogs,
+		CAST(0 AS BIT) AS can_click_btndbconfig,
+		CAST(0 AS BIT) AS can_click_btnpermission,
+		CAST(0 AS BIT) AS can_click_btnnewuser,
+		CAST(0 AS BIT) AS can_click_btnimport,
+		CAST(0 AS BIT) AS can_click_btnexport
+) AS src
+ON target.role_id = src.role_id
+WHEN MATCHED THEN UPDATE SET
+	can_click_btnmanageaccess = src.can_click_btnmanageaccess,
+	can_click_btnschedules = src.can_click_btnschedules,
+	can_click_btnlogs = src.can_click_btnlogs,
+	can_click_btndbconfig = src.can_click_btndbconfig,
+	can_click_btnpermission = src.can_click_btnpermission,
+	can_click_btnnewuser = src.can_click_btnnewuser,
+	can_click_btnimport = src.can_click_btnimport,
+	can_click_btnexport = src.can_click_btnexport,
+	updated_at = SYSUTCDATETIME()
+WHEN NOT MATCHED THEN
+	INSERT (
+		role_id,
+		can_click_btnmanageaccess,
+		can_click_btnschedules,
+		can_click_btnlogs,
+		can_click_btndbconfig,
+		can_click_btnpermission,
+		can_click_btnnewuser,
+		can_click_btnimport,
+		can_click_btnexport
+	)
+	VALUES (
+		src.role_id,
+		src.can_click_btnmanageaccess,
+		src.can_click_btnschedules,
+		src.can_click_btnlogs,
+		src.can_click_btndbconfig,
+		src.can_click_btnpermission,
+		src.can_click_btnnewuser,
+		src.can_click_btnimport,
+		src.can_click_btnexport
+	);
+
+-- Ensure the built-in admin account exists and uses the Supervisor role
+DECLARE @AdminRoleId INT;
+SELECT @AdminRoleId = id
+FROM dbo.admin_roles
+WHERE role_name = 'Supervisor';
+
+IF EXISTS (
+	SELECT 1
+	FROM dbo.admin_users
+	WHERE username = 'admin'
+)
+BEGIN
+	UPDATE dbo.admin_users
+	SET password_plaintext = 'b4r4ng4y!',
+		display_name = 'Administrator',
+		email = NULL,
+		role_id = @AdminRoleId,
+		barangay_id = NULL,
+		is_active = 1,
+		updated_at = SYSUTCDATETIME()
+	WHERE username = 'admin';
+END
+ELSE
+BEGIN
+	INSERT INTO dbo.admin_users (
+		username,
+		password_plaintext,
+		display_name,
+		email,
+		role_id,
+		barangay_id,
+		is_active
+	)
+	VALUES (
+		'admin',
+		'b4r4ng4y!',
+		'Administrator',
+		NULL,
+		@AdminRoleId,
+		NULL,
 		1
 	);
 END;
 
-UPDATE dbo.admin_users
-SET password_plaintext = 'Supervisor123!'
-WHERE username = 'supervisor'
-  AND (password_plaintext IS NULL OR LTRIM(RTRIM(password_plaintext)) = '');
-
-SELECT
-	u.username,
-	u.display_name,
-	r.role_name,
-	p.can_click_btnmanageaccess,
-	p.can_click_btnschedules,
-	p.can_click_btnlogs,
-	p.can_click_btndbconfig,
-	p.can_click_btnpermission,
-	p.can_click_btnnewuser,
-	p.can_click_btnimport,
-	p.can_click_btnexport
-FROM dbo.admin_users u
-JOIN dbo.admin_roles r ON r.id = u.role_id
-JOIN dbo.admin_role_permissions p ON p.role_id = r.id
-WHERE u.username = 'supervisor';
+-- (Users are managed via the API - no seed user is created here)
+-- Only schema, roles, and permissions are seeded above.

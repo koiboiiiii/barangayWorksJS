@@ -85,8 +85,10 @@
   background-color: #f7f2fa;
   width: 38.4524vw; /* 646px */
   height: 22.5vw; /* 378px */
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   isolation: isolate;
   text-align: left;
@@ -94,13 +96,29 @@
   color: #1d1b20;
   font-family: Roboto;
 }
+
+.menu::-webkit-scrollbar {
+  width: 0.6vw;
+}
+
+.menu::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+}
+
+.menu::-webkit-scrollbar-thumb {
+  background: rgba(29, 136, 217, 0.55);
+  border-radius: 999px;
+}
+
 .done {
   height: 4.5833vw; /* 77px */
   width: 38.4524vw; /* 646px */
   margin: 0 !important;
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
+  top: auto;
+  left: auto;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -143,7 +161,7 @@
   z-index: 1;
 }
 .lblserial {
-  width: 3.3333vw; /* 56px */
+  width: 9.5vw; /* 160px */
   height: 1.1905vw; /* 20px */
   position: absolute;
   margin: 0 !important;
@@ -153,8 +171,8 @@
   line-height: 1.1905vw; /* 20px */
   font-weight: 500;
   display: inline-block;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
   z-index: 2;
 }
@@ -167,7 +185,17 @@
   left: 34.8810vw; /* 586px */
   object-fit: cover;
   z-index: 3;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
 }
+
+.done:hover .btntrash-icon {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .status-icon {
   width: 2.2024vw; /* 37px */
   height: 2.2024vw; /* 37px */
@@ -267,6 +295,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: center / 1.4286vw 1.4286vw no-repeat url('./assets/cancel.svg');
 }
 .active-indicator {
   align-self: stretch;

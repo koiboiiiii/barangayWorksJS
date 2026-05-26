@@ -1,0 +1,55 @@
+
+USE [barangayworks];
+
+-- Processes table: store form submissions / service requests
+-- Fields: first_name, last_name, province, city, barangay, street, email, contact, service
+
+IF OBJECT_ID('dbo.processes', 'U') IS NULL
+BEGIN
+	CREATE TABLE dbo.processes (
+		id INT IDENTITY(1,1) PRIMARY KEY,
+		first_name NVARCHAR(100) NOT NULL,
+		last_name NVARCHAR(100) NOT NULL,
+		province NVARCHAR(100) NULL,
+		city NVARCHAR(100) NULL,
+		barangay NVARCHAR(100) NULL,
+		street NVARCHAR(255) NULL,
+		email NVARCHAR(255) NULL,
+		contact NVARCHAR(50) NULL,
+		service NVARCHAR(150) NULL,
+		selected_date DATE NULL,
+		serial_number AS (UPPER(LEFT(COALESCE(city, ''), 3)) + CONVERT(VARCHAR(8), selected_date, 112) + CAST(id AS VARCHAR(20))) PERSISTED,
+		created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+	);
+END;
+
+IF COL_LENGTH('dbo.processes', 'selected_date') IS NULL
+BEGIN
+	ALTER TABLE dbo.processes
+	ADD selected_date DATE NULL;
+END;
+
+IF COL_LENGTH('dbo.processes', 'serial_number') IS NULL
+BEGIN
+	ALTER TABLE dbo.processes
+	ADD serial_number AS (UPPER(LEFT(COALESCE(city, ''), 3)) + CONVERT(VARCHAR(8), selected_date, 112) + CAST(id AS VARCHAR(20))) PERSISTED;
+END;
+
+-- Quick view: select recent processes ordered by appointment date descending
+EXEC('SELECT TOP (100)
+	id,
+	first_name,
+	last_name,
+	province,
+	city,
+	barangay,
+	street,
+	email,
+	contact,
+	service,
+	selected_date,
+	serial_number,
+	created_at
+FROM dbo.processes
+ORDER BY selected_date DESC;');
+

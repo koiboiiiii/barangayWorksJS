@@ -1,3 +1,28 @@
+// --- Auto server start check - redirect to localhost if needed ---
+(function autoRedirectToServer() {
+  if (window.location.protocol === 'file:') {
+    // Check if the server is already running on localhost:3000
+    fetch('http://localhost:3000/', { method: 'HEAD', mode: 'no-cors' })
+      .then(function() {
+        // Server is running - redirect to localhost
+        window.location.replace('http://localhost:3000' + window.location.pathname);
+      })
+      .catch(function() {
+        // Server is not running - try to spawn it via fetch to a startup endpoint
+        fetch('http://localhost:3001/api/start-server', { method: 'POST', mode: 'no-cors' })
+          .catch(function() {
+            // Can't auto-start, show message on the page
+            console.log('Backend server not running. Please open index.html via http://localhost:3000');
+          });
+        // Retry redirect after 3 seconds (in case server was just started)
+        window.setTimeout(function() {
+          window.location.replace('http://localhost:3000' + window.location.pathname);
+        }, 3000);
+      });
+    return;
+  }
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   // --- Page fade transition (applies to all pages using main.js) ---
   const FADE_MS = 150;
@@ -26,6 +51,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }, FADE_MS);
   }
 
+  const currentPath = String(window.location.pathname || '').toLowerCase();
+  const isAdminOnlyPage = /\/(admindashboard|permissions|newadmin|logs)\.html$/.test(currentPath);
+  if (isAdminOnlyPage && !/\/adminlogin\.html$/.test(currentPath)) {
+    let hasAdminHint = false;
+    let exportToken = '';
+    try {
+      exportToken = sessionStorage.getItem('bw.admin.exportToken') || '';
+      hasAdminHint = !!sessionStorage.getItem('bw.admin.username') || !!exportToken;
+    } catch (error) {
+      hasAdminHint = false;
+    }
+
+    if (!hasAdminHint) {
+      window.location.replace('./adminlogin.html');
+      return;
+    }
+
+    if (exportToken) {
+      document.body.dataset.adminAuthMode = 'token';
+    }
+
+    fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/admin/session', { credentials: 'include' })
+      .then(function(response) { return response.json(); })
+      .then(function(payload) {
+        if (!payload || !payload.ok) {
+          // Keep the page open when the session cookie is unavailable; the
+          // server already gated access before serving this page, and the
+          // token fallback is what keeps local file:// launches stable.
+          return;
+        }
+      })
+      .catch(function() {
+        // Keep the local session hint as the fallback for file:// launches.
+      });
+  }
+
   // --- Navigation map for buttons that go to form pages ---
   const navMap = {
     btnclearance: './form.html?type=clearance',
@@ -52,12 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- btnsearch: scroll to the existing appointments section ---
   const btnSearch = document.querySelector('.btnsearch');
   if (btnSearch) {
-    // If we're on the update page, lock scrolling until the user performs a search.
     const isUpdatePage = !!document.querySelector('.update');
     const lockScroll = () => {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
-      // preserve touch scrolling lock for mobile
       document.documentElement.style.touchAction = 'none';
       document.body.style.touchAction = 'none';
     };
@@ -68,30 +127,221 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.style.touchAction = '';
     };
     if (isUpdatePage) lockScroll();
-    const updateSearchButtonState = () => {
-      const emailField = document.querySelector('.text-field .tfusedemail');
-      const firstNameField = document.querySelector('.text-field3 .tfusedemail');
-      const lastNameField = document.querySelector('.text-field5 .tfusedemail');
-
-      const email = (emailField?.textContent || '').trim();
-      const firstName = (firstNameField?.textContent || '').trim();
-      const lastName = (lastNameField?.textContent || '').trim();
-      const enabled = email.length > 0 || (firstName.length > 0 && lastName.length > 0);
-
+      const updateSearchButtonState = () => {
+        const emailField = document.querySelector('.text-field .tfusedemail');
+        const firstNameField = document.querySelector('.text-field3 .tfusedemail');
+        const lastNameField = document.querySelector('.text-field5 .tfusedemail');
+        const email = (emailField?.textContent || '').trim();
+        const firstName = (firstNameField?.textContent || '').trim();
+        const lastName = (lastNameField?.textContent || '').trim();
+        const enabled = email.length > 0 && firstName.length > 0 && lastName.length > 0;
       btnSearch.style.opacity = enabled ? '1' : '0.45';
       btnSearch.style.cursor = enabled ? 'pointer' : 'not-allowed';
       btnSearch.style.pointerEvents = enabled ? 'auto' : 'none';
       btnSearch.dataset.enabled = enabled ? '1' : '0';
     };
+    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+
+    const formatSelectedDate = (value) => {
+      if (!value) return '';
+      return String(value).slice(0, 10);
+    };
+
+    const getTodayIsoDate = () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    };
+
+    const getStatusIconSrc = (selectedDate) => {
+      const dateValue = formatSelectedDate(selectedDate);
+      if (dateValue && dateValue < getTodayIsoDate()) {
+        return './assets/done.png';
+      }
+      return './assets/ongoing.png';
+    };
+
+    const formatSerialNumber = (row) => {
+      if (row.serial_number) return String(row.serial_number);
+      const cityPart = String(row.city || '').trim().slice(0, 3).toUpperCase();
+      const datePart = formatSelectedDate(row.selected_date).replace(/-/g, '');
+      const idPart = row.id ? String(row.id) : '';
+      if (!cityPart || !datePart || !idPart) return '';
+      return cityPart + datePart + idPart;
+    };
+
+    const menuEl = document.querySelector('.update .menu');
+    const btnApplyUpdate = document.querySelector('.rectangle-group .btnapply');
+    var pendingDeleteIds = new Set();
+
+    var updateApplyButtonState = function() {
+      if (!btnApplyUpdate) return;
+      var hasPending = pendingDeleteIds.size > 0;
+      btnApplyUpdate.style.opacity = hasPending ? '1' : '0.45';
+      btnApplyUpdate.style.cursor = hasPending ? 'pointer' : 'not-allowed';
+      btnApplyUpdate.style.pointerEvents = hasPending ? 'auto' : 'none';
+    };
+
+    var addPendingDelete = function(processId) {
+      if (!processId) return;
+      pendingDeleteIds.add(String(processId));
+      updateApplyButtonState();
+    };
+
+    var removePendingDelete = function(processId) {
+      if (!processId) return;
+      pendingDeleteIds.delete(String(processId));
+      updateApplyButtonState();
+    };
+
+    const renderSearchResults = (processes) => {
+      if (!menuEl) return;
+      menuEl.innerHTML = '';
+      pendingDeleteIds.clear();
+      updateApplyButtonState();
+
+      if (!processes || !processes.length) {
+        const empty = document.createElement('div');
+        empty.className = 'done';
+        empty.style.display = 'flex';
+        empty.style.alignItems = 'center';
+        empty.style.justifyContent = 'center';
+        empty.textContent = 'No results found.';
+        menuEl.appendChild(empty);
+        return;
+      }
+
+      // Allow menu to scroll if many results
+      menuEl.style.overflowY = 'auto';
+      menuEl.style.flexDirection = 'column';
+
+      processes.forEach(function(row, index) {
+        var processId = row.id ? String(row.id) : '';
+        var logRow = document.createElement('div');
+        logRow.className = 'done-row';
+        logRow.dataset.processId = processId;
+        logRow.style.position = 'relative';
+        logRow.style.width = '100%';
+        logRow.style.height = '4.58vw';
+        logRow.style.overflow = 'hidden';
+        logRow.style.flexShrink = '0';
+
+        var serviceLabel = document.createElement('div');
+        serviceLabel.className = 'lblappointment';
+        serviceLabel.textContent = row.service || '';
+
+        var dateLabel = document.createElement('div');
+        dateLabel.className = 'lbldate';
+        dateLabel.textContent = formatSelectedDate(row.selected_date);
+
+        var serialLabel = document.createElement('div');
+        serialLabel.className = 'lblserial';
+        serialLabel.textContent = formatSerialNumber(row);
+
+        var isPastDate = row.selected_date && formatSelectedDate(row.selected_date) < getTodayIsoDate();
+
+        var statusIcon = document.createElement('img');
+        statusIcon.className = 'status-icon';
+        statusIcon.src = getStatusIconSrc(row.selected_date);
+        statusIcon.alt = isPastDate ? 'Done' : 'Ongoing';
+
+        logRow.appendChild(serviceLabel);
+        logRow.appendChild(dateLabel);
+        logRow.appendChild(serialLabel);
+        logRow.appendChild(statusIcon);
+
+        if (isPastDate) {
+          var trashIcon = document.createElement('img');
+          trashIcon.className = 'btntrash-icon';
+          trashIcon.src = './assets/trash.png';
+          trashIcon.alt = '';
+          trashIcon.style.cursor = 'pointer';
+          (function(pid, rowEl) {
+            trashIcon.addEventListener('click', function() {
+              if (pid) {
+                addPendingDelete(pid);
+              }
+              if (rowEl.parentNode) {
+                rowEl.parentNode.removeChild(rowEl);
+              }
+              if (pendingDeleteIds.size === 0) {
+                updateApplyButtonState();
+              }
+            });
+          })(processId, logRow);
+          logRow.appendChild(trashIcon);
+        }
+
+        menuEl.appendChild(logRow);
+      });
+    };
+
+    // Wire btnapply to actually delete all pending items from DB
+    if (btnApplyUpdate) {
+      btnApplyUpdate.addEventListener('click', function() {
+        if (pendingDeleteIds.size === 0) return;
+        var ids = Array.from(pendingDeleteIds);
+        var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+        var deleteNext = function(index) {
+          if (index >= ids.length) {
+            pendingDeleteIds.clear();
+            updateApplyButtonState();
+            return;
+          }
+          var pid = ids[index];
+          fetch(adminApiBase + '/api/processes/' + encodeURIComponent(pid), { method: 'DELETE' })
+            .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
+            .then(function(data) {
+              if (!data.ok) {
+                console.warn('Failed to delete process', pid, data && data.error);
+              }
+              deleteNext(index + 1);
+            })
+            .catch(function() {
+              console.warn('Could not reach server to delete process', pid);
+              deleteNext(index + 1);
+            });
+        };
+        if (ids.length > 0) deleteNext(0);
+      });
+    }
 
     btnSearch.addEventListener('click', () => {
       if (btnSearch.dataset.enabled !== '1') return;
-      // allow scrolling now that user intentionally invoked search
       unlockScroll();
+
+      const emailField = document.querySelector('.text-field .tfusedemail');
+      const firstNameField = document.querySelector('.text-field3 .tfusedemail');
+      const lastNameField = document.querySelector('.text-field5 .tfusedemail');
+      const email = (emailField?.textContent || '').trim();
+      const firstName = (firstNameField?.textContent || '').trim();
+      const lastName = (lastNameField?.textContent || '').trim();
+
+      const searchUrl = adminApiBase + '/api/processes/search?email=' + encodeURIComponent(email) + '&first_name=' + encodeURIComponent(firstName) + '&last_name=' + encodeURIComponent(lastName);
+      console.log('[search] fetching:', searchUrl);
+      fetch(searchUrl)
+        .then(function(r) {
+          console.log('[search] response status:', r.status);
+          return r.json();
+        })
+        .then(function(data) {
+          console.log('[search] response data:', data);
+          if (data && data.ok && Array.isArray(data.processes)) {
+            renderSearchResults(data.processes);
+          } else {
+            renderSearchResults([]);
+          }
+        })
+        .catch(function(err) {
+          console.error('[search] fetch error:', err);
+          renderSearchResults([]);
+        });
+
       const target = document.querySelector('.rectangle-parent');
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-
     [
       document.querySelector('.text-field .tfusedemail'),
       document.querySelector('.text-field3 .tfusedemail'),
@@ -102,7 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
       field.addEventListener('blur', updateSearchButtonState);
       field.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
     });
-
     updateSearchButtonState();
   }
 
@@ -174,7 +423,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Generic handling: all `tf*` fields and clear buttons ---
   (function wireTfAndEraseButtons(){
-    // find all elements with a class token starting with 'tf'
     const tfCandidates = [];
     document.querySelectorAll('[class]').forEach((el) => {
       for (const cls of Array.from(el.classList)) {
@@ -184,18 +432,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
-
-    // Normalize unique list
     const tfFields = Array.from(new Set(tfCandidates));
-
     tfFields.forEach((field) => {
-      // If it's a native input/textarea, keep default behavior but ensure accessibility
       if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
         field.style.cursor = 'text';
         field.spellcheck = false;
-        // ensure the erase button (if any) toggles correctly via input event elsewhere
       } else {
-        // make non-input tf fields editable (matches other pages behavior)
         field.contentEditable = 'true';
         field.setAttribute('role', 'textbox');
         field.setAttribute('aria-multiline', 'false');
@@ -205,15 +447,11 @@ document.addEventListener('DOMContentLoaded', () => {
         field.style.minHeight = '20px';
         field.style.cursor = 'text';
       }
-
-      // visual focus hint (light) for editable tf elements
       try {
         field.addEventListener('focus', () => { field.style.borderBottom = '2px solid #1d88d9'; });
         field.addEventListener('blur', () => { field.style.borderBottom = 'none'; });
       } catch (e) { /* ignore */ }
     });
-
-    // Wire up any erase* button to the nearest .state-layer -> tf* field
     const eraseButtons = Array.from(document.querySelectorAll('[class]')).filter((el) => {
       if (!el.classList) return false;
       return Array.from(el.classList).some((cls) => cls && cls.startsWith('erase'));
@@ -222,21 +460,16 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('role', 'button');
       if (btn.tagName === 'BUTTON') btn.type = 'button';
       btn.style.cursor = 'pointer';
-
       const stateLayer = btn.closest('.state-layer');
       if (!stateLayer) return;
-
-      // find a tf field inside the same state-layer
       const nearbyTf = Array.from(stateLayer.querySelectorAll('[class]')).find((el) =>
         Array.from(el.classList).some((c) => c && c.startsWith('tf'))
       );
       if (!nearbyTf) return;
-
       const syncButton = () => {
         const value = (nearbyTf.tagName === 'INPUT' || nearbyTf.tagName === 'TEXTAREA') ? (nearbyTf.value || '') : (nearbyTf.textContent || '');
         btn.style.display = value.trim().length > 0 ? 'flex' : 'none';
       };
-
       btn.addEventListener('click', () => {
         if (nearbyTf.tagName === 'INPUT' || nearbyTf.tagName === 'TEXTAREA') {
           nearbyTf.value = '';
@@ -247,8 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         syncButton();
       });
-
-      // Attach listeners to the tf field to keep erase visibility in sync
       try {
         if (nearbyTf.tagName === 'INPUT' || nearbyTf.tagName === 'TEXTAREA') {
           nearbyTf.addEventListener('input', syncButton);
@@ -259,7 +490,6 @@ document.addEventListener('DOMContentLoaded', () => {
           nearbyTf.addEventListener('paste', () => { setTimeout(syncButton, 0); });
         }
       } catch (e) { /* ignore */ }
-
       if (btn.tagName !== 'BUTTON') {
         btn.setAttribute('tabindex', '0');
         btn.addEventListener('keydown', (event) => {
@@ -269,282 +499,330 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
       }
-
-      // initialize visibility
       syncButton();
     });
   })();
 
-  // --- permissions page role dropdown ---
+  // --- PERMISSIONS PAGE: dynamic user rows with floating role select ---
   const isPermissionsPage = !!document.querySelector('.permissions');
   if (isPermissionsPage) {
-    const btnApply = document.querySelector('.btnapply');
-    if (btnApply) {
-      // initial visual state — actual click behavior is guarded by enable/disable logic
-      btnApply.style.cursor = 'not-allowed';
-      btnApply.style.opacity = '0.45';
-      btnApply.style.pointerEvents = 'none';
-    }
+    var btnApply = document.querySelector('.btnapply');
+    var permBtnBack = document.querySelector('.btnback');
+    var menuEl = document.querySelector('.menu');
+    var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
 
-    // permissions page back button (same position/function as newadmin.btnback)
-    const permBtnBack = document.querySelector('.btnback');
-    if (permBtnBack) {
-      permBtnBack.style.cursor = 'pointer';
-      permBtnBack.addEventListener('click', () => {
-        navigateWithFade('./admindashboard.html');
-      });
-    }
-
-    const menu = document.querySelector('.menu');
-    const menuTrigger = document.querySelector('.icon');
-    const selectedIcon = document.querySelector('.icon2');
-    const editAdminNameIcon = document.querySelector('.editadminname-icon');
-    const roleDropdown = menu ? menu.querySelector('.role-dropdown') : null;
-    const roleLabel = document.querySelector('.lbladminname');
-
-    // change-tracking for enabling/disabling the Apply button
-    let __initialSelectedRole = null;
-    let __initialAdminName = null;
-    const getCurrentRole = () => (selectedIcon && selectedIcon.dataset && selectedIcon.dataset.role) ? selectedIcon.dataset.role : null;
-    const getCurrentName = () => (roleLabel ? roleLabel.textContent.trim() : '');
-    const setBtnApplyEnabled = (enabled) => {
-      const btn = document.querySelector('.btnapply');
-      if (!btn) return;
-      if (enabled) {
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-        btn.style.pointerEvents = 'auto';
-        btn.dataset.enabled = '1';
-      } else {
-        btn.style.opacity = '0.45';
-        btn.style.cursor = 'not-allowed';
-        btn.style.pointerEvents = 'none';
-        delete btn.dataset.enabled;
-      }
-    };
-    const checkPermissionsDirty = () => {
-      const curRole = getCurrentRole();
-      const curName = getCurrentName();
-      const dirty = (curRole !== __initialSelectedRole) || (curName !== __initialAdminName);
-      setBtnApplyEnabled(!!dirty);
-      return dirty;
-    };
-
-    // Guard clicks on Apply so they only act when enabled
-    (function attachApplyGuard(){
-      const btn = document.querySelector('.btnapply');
-      if (!btn) return;
-      btn.addEventListener('click', (e) => {
-        if (btn.dataset.enabled === '1') {
-          navigateWithFade('./admindashboard.html');
-        } else {
-          // prevent accidental clicks when disabled
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      });
-    })();
-
-    const roles = [
+    var roles = [
       { label: 'Supervisor', image: './assets/supervisor.png' },
       { label: 'Manager', image: './assets/manager.png' },
       { label: 'Officer', image: './assets/officer.png' }
     ];
+    var roleImageMap = {};
+    roles.forEach(function(r) { roleImageMap[r.label] = r.image; });
+    var willDelete = false; // flag if user selected "Delete User"
 
-    if (menu && menuTrigger && selectedIcon && roleDropdown) {
-      menuTrigger.style.transition = 'transform 180ms ease';
+    // Pending changes: { username -> { originalRole, selectedRole } }
+    var pendingChanges = {};
+    var allUsers = [];
 
-      const setTriggerRotation = (isOpen) => {
-        menuTrigger.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
-      };
+    // Apply button state
+    function updateApplyState() {
+      var hasChanges = false;
+      for (var k in pendingChanges) {
+        if (pendingChanges[k].selectedRole !== pendingChanges[k].originalRole) {
+          hasChanges = true;
+          break;
+        }
+      }
+      if (!btnApply) return;
+      if (hasChanges) {
+        btnApply.style.opacity = '1';
+        btnApply.style.cursor = 'pointer';
+        btnApply.style.pointerEvents = 'auto';
+        btnApply.dataset.enabled = '1';
+      } else {
+        btnApply.style.opacity = '0.45';
+        btnApply.style.cursor = 'not-allowed';
+        btnApply.style.pointerEvents = 'none';
+        delete btnApply.dataset.enabled;
+      }
+    }
 
-      const closeDropdown = () => {
-        menu.classList.remove('role-dropdown-open');
-        menuTrigger.setAttribute('aria-expanded', 'false');
-        setTriggerRotation(false);
-      };
+    if (permBtnBack) {
+      permBtnBack.style.cursor = 'pointer';
+      permBtnBack.addEventListener('click', function() {
+        window.location.replace('./admindashboard.html');
+      });
+    }
 
-      const openDropdown = () => {
-        menu.classList.add('role-dropdown-open');
-        menuTrigger.setAttribute('aria-expanded', 'true');
-        setTriggerRotation(true);
-      };
+    // Floating role dropdown element (single shared overlay)
+    var floatDropdown = document.createElement('div');
+    floatDropdown.className = 'role-dropdown';
+    document.body.appendChild(floatDropdown);
 
-      const setSelectedRole = (role) => {
-        selectedIcon.src = role.image;
-        selectedIcon.alt = `${role.label} role`;
-        selectedIcon.dataset.role = role.label;
-        menu.dataset.selectedRole = role.label;
-        if (roleLabel) roleLabel.dataset.role = role.label;
+    var activeIconButton = null; // the icon element that opened this dropdown
 
-        Array.from(roleDropdown.querySelectorAll('.role-option')).forEach((option) => {
-          option.classList.toggle('is-selected', option.dataset.role === role.label);
-        });
+    function showFloatDropdown(iconEl, username, currentRole) {
+      // Position dropdown near the icon
+      var rect = iconEl.getBoundingClientRect();
+      floatDropdown.innerHTML = '';
+      floatDropdown.classList.add('is-visible');
 
-        // update apply enabled state when role changes
-        try { checkPermissionsDirty(); } catch (e) { /* ignore if helper not ready */ }
-      };
+      // Position to the right of the icon
+      floatDropdown.style.left = (rect.right + 6) + 'px';
+      floatDropdown.style.top = rect.top + 'px';
 
-      roleDropdown.innerHTML = '';
-      roles.forEach((role) => {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'role-option';
-        option.dataset.role = role.label;
-
-        const icon = document.createElement('img');
+      roles.forEach(function(role) {
+        var opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'role-option';
+        if (role.label === currentRole) opt.classList.add('is-selected');
+        var icon = document.createElement('img');
         icon.className = 'role-option-icon';
         icon.src = role.image;
         icon.alt = '';
-
-        const label = document.createElement('span');
+        var label = document.createElement('span');
         label.className = 'role-option-label';
         label.textContent = role.label;
-
-        option.appendChild(icon);
-        option.appendChild(label);
-        option.addEventListener('click', () => {
-          setSelectedRole(role);
-          closeDropdown();
+        opt.appendChild(icon);
+        opt.appendChild(label);
+        opt.addEventListener('click', function(e) {
+          e.stopPropagation();
+          // Update pending change
+          if (!pendingChanges[username]) {
+            pendingChanges[username] = { originalRole: currentRole, selectedRole: role.label };
+          } else {
+            pendingChanges[username].selectedRole = role.label;
+          }
+          // Update the role icon in the row
+          var roleIcon = iconEl.closest('.admin1').querySelector('.icon2');
+          if (roleIcon && roleImageMap[role.label]) {
+            roleIcon.src = roleImageMap[role.label];
+          }
+          // Update the admin name label to show current role
+          var nameLabel = iconEl.closest('.admin1').querySelector('.lbladminname');
+          if (nameLabel) {
+            var baseName = nameLabel.dataset.displayname || '';
+            var bId = nameLabel.dataset.barangayid || '';
+            var suffix = bId ? ' — ' + bId : '';
+            nameLabel.textContent = baseName + ' (' + role.label + ')' + suffix;
+          }
+          closeFloatDropdown();
+          updateApplyState();
         });
-
-        roleDropdown.appendChild(option);
+        floatDropdown.appendChild(opt);
       });
 
-      const initialRole = roles.find((role) => selectedIcon.getAttribute('src')?.includes(`${role.label.toLowerCase()}.png`)) || roles[0];
-      setSelectedRole(initialRole);
-      closeDropdown();
-
-      // record initial state for dirty checks
-      __initialSelectedRole = getCurrentRole();
-      __initialAdminName = getCurrentName();
-      // ensure Apply is disabled initially
-      try { setBtnApplyEnabled(false); } catch (e) {}
-
-      menuTrigger.style.cursor = 'pointer';
-      menuTrigger.setAttribute('role', 'button');
-      menuTrigger.setAttribute('tabindex', '0');
-      menuTrigger.setAttribute('aria-expanded', 'false');
-
-      menuTrigger.addEventListener('click', (event) => {
-        event.stopPropagation();
-        if (menu.classList.contains('role-dropdown-open')) closeDropdown();
-        else openDropdown();
+      // Add a destructive "Delete user" option at the end
+      var delOpt = document.createElement('button');
+      delOpt.type = 'button';
+      delOpt.className = 'role-option role-option-destructive';
+      var delIcon = document.createElement('img');
+      delIcon.className = 'role-option-icon';
+      delIcon.src = './assets/trash.png';
+      delIcon.alt = 'delete';
+      var delLabel = document.createElement('span');
+      delLabel.className = 'role-option-label';
+      delLabel.textContent = 'Delete user';
+      delOpt.appendChild(delIcon);
+      delOpt.appendChild(delLabel);
+      delOpt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!username) return;
+        if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
+        // Call backend to delete user
+        fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(username), {
+          method: 'DELETE'
+        })
+        .then(function(r) { return r.json().catch(function(){ return { ok: false }; }); })
+        .then(function(data) {
+          if (data && data.ok) {
+            // remove from local list and re-render
+            allUsers = allUsers.filter(function(u) { return u.username !== username; });
+            delete pendingChanges[username];
+            closeFloatDropdown();
+            renderUsers();
+            updateApplyState();
+            alert('User deleted');
+          } else {
+            alert('Failed to delete user: ' + (data && data.error ? data.error : 'unknown'));
+          }
+        })
+        .catch(function() {
+          alert('Could not reach server to delete user');
+        });
       });
+      floatDropdown.appendChild(delOpt);
 
-      menuTrigger.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          if (menu.classList.contains('role-dropdown-open')) closeDropdown();
-          else openDropdown();
-        }
-      });
-
-      roleDropdown.addEventListener('click', (event) => {
-        event.stopPropagation();
-      });
-
-      document.addEventListener('click', (event) => {
-        if (!menu.contains(event.target)) closeDropdown();
-      });
+      activeIconButton = iconEl;
     }
 
-    if (roleLabel && editAdminNameIcon) {
-      const HIDE_GRACE_MS = 250;
-      let hideTimer = null;
+    function closeFloatDropdown() {
+      floatDropdown.classList.remove('is-visible');
+      activeIconButton = null;
+    }
 
-      const clearHideTimer = () => {
-        if (hideTimer) {
-          window.clearTimeout(hideTimer);
-          hideTimer = null;
-        }
-      };
+    // Close floating dropdown on outside click
+    document.addEventListener('click', function(e) {
+      if (floatDropdown.classList.contains('is-visible') && !floatDropdown.contains(e.target) && e.target !== activeIconButton) {
+        closeFloatDropdown();
+      }
+    });
 
-      const positionEditIcon = () => {
-        const labelRect = roleLabel.getBoundingClientRect();
-        const parentRect = roleLabel.offsetParent ? roleLabel.offsetParent.getBoundingClientRect() : null;
-        if (!parentRect) return;
-
-        const left = labelRect.right - parentRect.left + 6;
-        const top = labelRect.top - parentRect.top + Math.max(0, (labelRect.height - editAdminNameIcon.offsetHeight) / 2);
-
-        editAdminNameIcon.style.left = `${left}px`;
-        editAdminNameIcon.style.top = `${top}px`;
-      };
-
-      const syncEditIconVisibility = () => {
-        const shouldShow = roleLabel.matches(':hover') || editAdminNameIcon.matches(':hover');
-        editAdminNameIcon.classList.toggle('is-hover-visible', shouldShow);
-      };
-
-      const showEditIcon = () => {
-        clearHideTimer();
-        editAdminNameIcon.classList.add('is-hover-visible');
-      };
-
-      const scheduleHideEditIcon = () => {
-        clearHideTimer();
-        hideTimer = window.setTimeout(() => {
-          if (!roleLabel.matches(':hover') && !editAdminNameIcon.matches(':hover')) {
-            editAdminNameIcon.classList.remove('is-hover-visible');
-          }
-          hideTimer = null;
-        }, HIDE_GRACE_MS);
-      };
-
-      const setEditingState = (isEditing) => {
-        roleLabel.contentEditable = isEditing ? 'true' : 'false';
-        roleLabel.spellcheck = false;
-        roleLabel.style.cursor = isEditing ? 'text' : 'default';
-        roleLabel.style.outline = isEditing ? 'none' : '';
-      };
-
-      setEditingState(false);
-
-      positionEditIcon();
-      window.addEventListener('resize', positionEditIcon);
-      if (window.ResizeObserver) {
-        const iconObserver = new ResizeObserver(positionEditIcon);
-        iconObserver.observe(roleLabel);
+    // Build user rows inside the menu
+    function renderUsers() {
+      if (!menuEl) return;
+      // Keep the first child (admin1 placeholder) only
+      while (menuEl.firstChild) {
+        menuEl.removeChild(menuEl.firstChild);
       }
 
-      roleLabel.addEventListener('input', () => { positionEditIcon(); try { checkPermissionsDirty(); } catch (e) {} });
+      // Filter out 'admin' user from the visible list (keep in DB)
+      var visibleUsers = allUsers.filter(function(u) { return u.username !== 'admin'; });
 
-      roleLabel.addEventListener('mouseenter', showEditIcon);
-      roleLabel.addEventListener('mouseleave', scheduleHideEditIcon);
+      visibleUsers.forEach(function(u, idx) {
+        var row = document.createElement('div');
+        row.className = 'admin1';
 
-      editAdminNameIcon.addEventListener('mouseenter', showEditIcon);
-      editAdminNameIcon.addEventListener('mouseleave', scheduleHideEditIcon);
+        var dropdownIcon = document.createElement('img');
+        dropdownIcon.className = 'icon';
+        dropdownIcon.src = './assets/dropdown.svg';
+        dropdownIcon.alt = '';
+        dropdownIcon.setAttribute('role', 'button');
+        dropdownIcon.setAttribute('tabindex', '0');
+        dropdownIcon.style.cursor = 'pointer';
 
-      editAdminNameIcon.style.cursor = 'pointer';
-      editAdminNameIcon.addEventListener('click', (event) => {
-        event.stopPropagation();
-        clearHideTimer();
-        editAdminNameIcon.classList.remove('is-hover-visible');
-        setEditingState(true);
-        roleLabel.focus();
+        var roleIcon = document.createElement('img');
+        roleIcon.className = 'icon2';
+        roleIcon.src = roleImageMap[u.role_name] || './assets/supervisor.png';
+        roleIcon.alt = u.role_name + ' role';
 
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(roleLabel);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        var nameLabel = document.createElement('div');
+        nameLabel.className = 'lbladminname';
+        nameLabel.dataset.displayname = u.display_name || '';
+        nameLabel.dataset.barangayid = u.barangay_id || '';
+        var barangaySuffix = u.barangay_id ? ' — ' + u.barangay_id : '';
+        nameLabel.textContent = (u.display_name || '') + ' (' + (u.role_name || '') + ')' + barangaySuffix;
+
+        row.appendChild(dropdownIcon);
+        row.appendChild(roleIcon);
+        row.appendChild(nameLabel);
+        menuEl.appendChild(row);
+
+        // Click the dropdown arrow to show role options
+        dropdownIcon.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (floatDropdown.classList.contains('is-visible') && activeIconButton === dropdownIcon) {
+            closeFloatDropdown();
+          } else {
+            var currentRole = u.role_name;
+            if (pendingChanges[u.username]) {
+              currentRole = pendingChanges[u.username].selectedRole;
+            }
+            showFloatDropdown(dropdownIcon, u.username, currentRole);
+          }
+        });
+
+        dropdownIcon.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            dropdownIcon.click();
+          }
+        });
       });
 
-      roleLabel.addEventListener('blur', () => {
-        setEditingState(false);
-        syncEditIconVisibility();
-        positionEditIcon();
-        try { checkPermissionsDirty(); } catch (e) {}
+      // Initialize pending changes for all users
+      allUsers.forEach(function(u) {
+        pendingChanges[u.username] = { originalRole: u.role_name, selectedRole: u.role_name };
       });
+      updateApplyState();
+    }
 
-      roleLabel.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          roleLabel.blur();
+    // Load users from API
+    function loadUsers() {
+      fetch(adminApiBase + '/api/admin/users')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (!data.ok || !data.users) return;
+          allUsers = data.users;
+          renderUsers();
+
+          // Auto-delete any user matching display name "Pewdie Pie" or username "pewdiepie"
+          (function autoDeletePewdie(){
+            if (!Array.isArray(allUsers) || allUsers.length === 0) return;
+            var found = allUsers.find(function(u){
+              if (!u) return false;
+              var uname = (u.username || '').toString().toLowerCase();
+              var dname = (u.display_name || '').toString().toLowerCase();
+              return uname === 'pewdiepie' || dname === 'pewdie pie';
+            });
+            if (!found) return;
+            var targetUsername = found.username;
+            if (!targetUsername) return;
+            fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(targetUsername), { method: 'DELETE' })
+              .then(function(r){ return r.json().catch(function(){ return { ok: false }; }); })
+              .then(function(res){
+                if (res && res.ok) {
+                  // remove locally and re-render
+                  allUsers = allUsers.filter(function(u){ return (u.username || '').toLowerCase() !== targetUsername.toLowerCase(); });
+                  delete pendingChanges[targetUsername];
+                  renderUsers();
+                } else {
+                  console.warn('Auto-delete failed for', targetUsername, res && res.error);
+                }
+              })
+              .catch(function(){ console.warn('Could not reach server to auto-delete', targetUsername); });
+          })();
+        })
+        .catch(function() {});
+    }
+
+    // Apply button: PATCH all changed roles
+    if (btnApply) {
+      btnApply.addEventListener('click', function(e) {
+        if (btnApply.dataset.enabled !== '1') {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
         }
+        // Find all changed users
+        var changedUsers = [];
+        for (var k in pendingChanges) {
+          if (pendingChanges[k].selectedRole !== pendingChanges[k].originalRole) {
+            changedUsers.push({ username: k, role: pendingChanges[k].selectedRole });
+          }
+        }
+        if (changedUsers.length === 0) return;
+
+        // Apply changes sequentially, then redirect
+        var applyNext = function(index) {
+          if (index >= changedUsers.length) {
+            window.location.replace('./admindashboard.html');
+            return;
+          }
+          var cu = changedUsers[index];
+          fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(cu.username) + '/role', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role_name: cu.role })
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.ok) {
+              applyNext(index + 1);
+            } else {
+              window.alert('Failed to update ' + cu.username + ': ' + (data.error || 'unknown'));
+            }
+          })
+          .catch(function() {
+            window.alert('Could not reach server while updating ' + cu.username);
+          });
+        };
+        applyNext(0);
       });
     }
+
+    // Load users on startup
+    loadUsers();
   }
 
   // --- Admin login page behaviors ---
@@ -559,23 +837,42 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Disable/Register button until required `tf*` fields are filled
     (function wireRegisterButtonGuard(){
-      const btnRegister = document.querySelector('.btnregister');
-      const container = document.querySelector('.addadmin');
+      var btnRegister = document.querySelector('.btnregister');
+      var container = document.querySelector('.addadmin');
       if (!btnRegister || !container) return;
 
-      const collectTfFields = () => {
-        const out = [];
-        container.querySelectorAll('[class]').forEach((el) => {
-          for (const cls of Array.from(el.classList)) {
-            if (cls && cls.startsWith('tf')) { out.push(el); break; }
+      var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+
+      // Map field labels to their nearest tf elements
+      function getFieldByLabelContaining(text) {
+        var labels = container.querySelectorAll('.label-text, .label-text3');
+        for (var i = 0; i < labels.length; i++) {
+          if (labels[i].textContent.indexOf(text) !== -1) {
+            var stateLayer = labels[i].closest('.state-layer');
+            if (stateLayer) {
+              var tf = stateLayer.querySelector('[class*="tf"]');
+              return tf;
+            }
           }
-        });
-        return Array.from(new Set(out));
+        }
+        return null;
+      }
+
+      var fields = {
+        barangayId: getFieldByLabelContaining('Barangay ID'),
+        username: getFieldByLabelContaining('Admin Username') || getFieldByLabelContaining('Username'),
+        password: getFieldByLabelContaining('Admin Password') || getFieldByLabelContaining('Password'),
+        fullname: getFieldByLabelContaining('Full Name')
       };
 
-      const setBtnRegisterEnabled = (enabled) => {
+      function getFieldValue(field) {
+        if (!field) return '';
+        if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') return field.value.trim();
+        return (field.textContent || '').trim();
+      }
+
+      function setBtnRegisterEnabled(enabled) {
         if (!btnRegister) return;
         if (enabled) {
           btnRegister.style.opacity = '1';
@@ -588,23 +885,20 @@ document.addEventListener('DOMContentLoaded', () => {
           btnRegister.style.pointerEvents = 'none';
           delete btnRegister.dataset.enabled;
         }
-      };
+      }
 
-      const checkRegisterFilled = () => {
-        const fields = collectTfFields();
-        if (!fields.length) { setBtnRegisterEnabled(true); return true; }
-        let all = true;
-        fields.forEach((f) => {
-          const val = (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA') ? (f.value || '') : (f.textContent || '');
-          if (!val || !String(val).trim()) all = false;
-        });
+      function checkRegisterFilled() {
+        var all = true;
+        for (var k in fields) {
+          if (!getFieldValue(fields[k])) { all = false; break; }
+        }
         setBtnRegisterEnabled(all);
         return all;
-      };
+      }
 
-      // attach listeners to tf fields
-      const tfFields = collectTfFields();
-      tfFields.forEach((f) => {
+      for (var k in fields) {
+        var f = fields[k];
+        if (!f) continue;
         try {
           if (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA') {
             f.addEventListener('input', checkRegisterFilled);
@@ -612,24 +906,186 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             f.addEventListener('input', checkRegisterFilled);
             f.addEventListener('keyup', checkRegisterFilled);
-            f.addEventListener('paste', () => setTimeout(checkRegisterFilled, 0));
+            f.addEventListener('paste', function() { setTimeout(checkRegisterFilled, 0); });
           }
         } catch (e) { /* ignore */ }
-      });
+      }
 
-      // initialize
       checkRegisterFilled();
 
-      // guard click
-      btnRegister.addEventListener('click', (e) => {
-        if (btnRegister.dataset.enabled === '1') {
-          navigateWithFade('./admindashboard.html');
-        } else {
+      btnRegister.addEventListener('click', function(e) {
+        if (btnRegister.dataset.enabled !== '1') {
           e.preventDefault();
           e.stopPropagation();
+          return;
         }
+
+        var barangayId = getFieldValue(fields.barangayId);
+        var username = getFieldValue(fields.username);
+        var password = getFieldValue(fields.password);
+        var displayName = getFieldValue(fields.fullname);
+
+        fetch(adminApiBase + '/api/admin/user', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: username,
+            password: password,
+            display_name: displayName,
+            role_name: 'Officer',
+            barangay_id: barangayId || null
+          })
+        })
+        .then(function(r) { return r.json().then(function(body){ return { status: r.status, body: body }; }).catch(function(){ return { status: r.status, body: {} }; }); })
+        .then(function(resp) {
+          var status = resp.status;
+          var data = resp.body || {};
+          if (status === 201 || data.ok) {
+            navigateWithFade('./admindashboard.html');
+          } else if (status === 409) {
+            window.alert('Cannot create user: username or barangay ID already taken');
+          } else {
+            window.alert('Failed to create user: ' + (data.error || 'unknown error'));
+          }
+        })
+        .catch(function() {
+          window.alert('Could not reach server');
+        });
       });
     })();
+  }
+
+  // --- form page: persist form values before navigating to date page ---
+  const isFormPersistencePage = !!document.querySelector('.consent');
+  if (isFormPersistencePage) {
+    const btndate = document.querySelector('.btndate');
+    function getFieldByLabelContaining(text) {
+      if (!text) return null;
+      text = String(text).toLowerCase();
+
+      // Direct field mappings for the exact structure used in form.html.
+      const directMappings = {
+        'first name': '.text-field .tffirstname',
+        'last name': '.text-field7 .tffirstname',
+        'province': '.text-field9 .tffirstname',
+        'city': '.text-field11 .tffirstname',
+        'barangay': '.text-field13 .tffirstname',
+        'street': '.text-field15 .tffirstname',
+        'street/ purok no.': '.text-field15 .tffirstname',
+        'email': '.text-field3 .tfemail',
+        'email address': '.text-field3 .tfemail',
+        'contact': '.text-field5 .tfemail',
+        'contact number': '.text-field5 .tfemail'
+      };
+
+      for (const key of Object.keys(directMappings)) {
+        if (text.indexOf(key) !== -1) {
+          const mapped = document.querySelector(directMappings[key]);
+          if (mapped) return mapped;
+        }
+      }
+
+      // Try label-based lookup for any future markup variations.
+      const labelSelectors = ['.label-text', '.label-text2', '.label-text3', '.label-text6', '.label-text-container', '.email-address', '.contact-number', '.home-address', '.visitors-name'];
+      for (const sel of labelSelectors) {
+        const labels = document.querySelectorAll(sel);
+        for (let i = 0; i < labels.length; i++) {
+          const lbl = labels[i];
+          if (!lbl || !lbl.textContent) continue;
+          if (lbl.textContent.toLowerCase().indexOf(text) !== -1) {
+            const stateLayer = lbl.closest('.state-layer');
+            if (stateLayer) {
+              const tf = stateLayer.querySelector('[class*="tf"]');
+              if (tf) return tf;
+            }
+            const siblingTf = lbl.parentElement && lbl.parentElement.querySelector('[class*="tf"]');
+            if (siblingTf) return siblingTf;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function getFieldValue(field) {
+      if (!field) return '';
+      if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') return field.value.trim();
+      return (field.textContent || '').trim();
+    }
+
+    if (btndate) {
+      btndate.addEventListener('click', function(e) {
+        // collect fields
+        var payload = {
+          first_name: getFieldValue(getFieldByLabelContaining('First Name')),
+          last_name: getFieldValue(getFieldByLabelContaining('Last Name')),
+          province: getFieldValue(getFieldByLabelContaining('Province')),
+          city: getFieldValue(getFieldByLabelContaining('City')),
+          barangay: getFieldValue(getFieldByLabelContaining('Barangay')),
+          street: getFieldValue(getFieldByLabelContaining('Street')),
+          email: getFieldValue(document.querySelector('.text-field3 .tfemail') || getFieldByLabelContaining('Email')),
+          contact: getFieldValue(getFieldByLabelContaining('Contact Number') || getFieldByLabelContaining('Contact')),
+          service: (document.getElementById('formTitle') && document.getElementById('formTitle').textContent.trim()) || ''
+        };
+        try { sessionStorage.setItem('bw.form', JSON.stringify(payload)); } catch (err) { /* ignore */ }
+        // navigate to date page
+        navigateWithFade('./date.html');
+      });
+    }
+  }
+
+  // --- date page: submit stored form when clicking btnsuccess ---
+  const isDatePage = !!document.querySelector('.reminder');
+  if (isDatePage) {
+    const btnSuccess = document.querySelector('.btnsuccess');
+    if (btnSuccess) {
+      btnSuccess.addEventListener('click', async function(e) {
+        // prevent double clicks
+        if (btnSuccess.dataset.sending === '1') return;
+        var raw = null;
+        try { raw = sessionStorage.getItem('bw.form'); } catch (err) { /* ignore */ }
+        if (!raw) {
+          window.alert('No form data found. Please fill out the form first.');
+          return;
+        }
+        var data = {};
+        try { data = JSON.parse(raw); } catch (err) { data = {}; }
+        // basic validation
+        if (!data.first_name || !data.last_name || !data.service) {
+          window.alert('First name, last name and service are required.');
+          return;
+        }
+        const selectedDate = calendarRoot && calendarRoot.dataset ? String(calendarRoot.dataset.selected || '') : '';
+        if (!selectedDate) {
+          window.alert('Please select an available date before submitting.');
+          return;
+        }
+        btnSuccess.dataset.sending = '1';
+        var previousText = btnSuccess.textContent;
+        btnSuccess.textContent = 'Submitting...';
+        try {
+          const response = await fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/processes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.assign({}, data, { selected_date: selectedDate }))
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || !payload.ok) {
+            window.alert('Submission failed: ' + (payload.error || 'unknown error'));
+            return;
+          }
+          // clear stored form on success
+          try { sessionStorage.removeItem('bw.form'); } catch (err) {}
+          // go to success page
+          navigateWithFade('./success.html');
+        } catch (err) {
+          window.alert('Could not reach server to submit form.');
+        } finally {
+          btnSuccess.dataset.sending = '0';
+          btnSuccess.textContent = previousText;
+        }
+      });
+    }
   }
 
   // --- schedule page: back button ---
@@ -661,8 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updateScheduleApplyState = () => {
       if (!btnApply || !calendarRoot) return;
-      const dirty = calendarRoot.querySelector('.calendar-button.unavailable') !== null;
-      setScheduleApplyEnabled(dirty);
+      setScheduleApplyEnabled(true);
     };
 
     if (btnApply) {
@@ -671,16 +1126,188 @@ document.addEventListener('DOMContentLoaded', () => {
           navigateWithFade('./admindashboard.html');
         }
       });
-      setScheduleApplyEnabled(false);
+      setScheduleApplyEnabled(true);
     }
 
-    // expose the updater to the calendar logic below
     window.__updateScheduleApplyState = updateScheduleApplyState;
   }
 
   // --- logs page: Apply should return to admin dashboard ---
   const isLogsPage = !!document.querySelector('.logs');
   if (isLogsPage) {
+    const menuEl = document.querySelector('.logs .menu');
+    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    const serialSearchField = document.querySelector('.logs .tfserial');
+
+    const logsSearchStyle = document.createElement('style');
+    logsSearchStyle.textContent = `
+      .logs .done.cw-log-matched {
+        outline: 0.2vw solid rgba(29, 136, 217, 0.35);
+        background: rgba(29, 136, 217, 0.08);
+      }
+      .logs .done.cw-log-highlighted {
+        outline: 0.24vw solid rgba(29, 136, 217, 0.9);
+        background: rgba(29, 136, 217, 0.16);
+      }
+    `;
+    document.head.appendChild(logsSearchStyle);
+
+    const getLogRows = () => Array.from(document.querySelectorAll('.logs .menu .done-row, .logs .menu .done'));
+
+    const syncLogSerialSearch = () => {
+      const query = (serialSearchField && serialSearchField.value ? serialSearchField.value : serialSearchField && serialSearchField.textContent ? serialSearchField.textContent : '').trim().toLowerCase();
+      const rows = getLogRows();
+      let firstMatch = null;
+
+      rows.forEach((row) => {
+        row.classList.remove('cw-log-matched', 'cw-log-highlighted');
+
+        const serialLabel = row.querySelector('.lblserial');
+        const serialValue = (serialLabel && serialLabel.textContent ? serialLabel.textContent : '').trim().toLowerCase();
+        const matches = !query || serialValue.includes(query);
+
+        if (matches && query) {
+          row.classList.add('cw-log-matched');
+          if (!firstMatch) firstMatch = row;
+        }
+      });
+
+      if (firstMatch) {
+        firstMatch.classList.add('cw-log-highlighted');
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
+    const formatSelectedDate = (value) => {
+      if (!value) return '';
+      return String(value).slice(0, 10);
+    };
+
+    const formatSerialNumber = (row) => {
+      if (row.serial_number) return String(row.serial_number);
+      const cityPart = String(row.city || '').trim().slice(0, 3).toUpperCase();
+      const datePart = formatSelectedDate(row.selected_date).replace(/-/g, '');
+      const idPart = row.id ? String(row.id) : '';
+      if (!cityPart || !datePart || !idPart) return '';
+      return cityPart + datePart + idPart;
+    };
+
+    const getTodayIsoDate = () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    };
+
+    const getStatusIconSrc = (selectedDate) => {
+      const dateValue = formatSelectedDate(selectedDate);
+      if (dateValue && dateValue < getTodayIsoDate()) {
+        return './assets/done.png';
+      }
+      return './assets/ongoing.png';
+    };
+
+    const reloadLogs = () => {
+      fetch(adminApiBase + '/api/processes')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.ok && Array.isArray(data.processes)) {
+            renderLogs(data.processes);
+          }
+        })
+        .catch(function() {});
+    };
+
+    const buildLogRow = (row, index) => {
+      const logRow = document.createElement('div');
+      logRow.className = `done log${index + 1}`;
+      logRow.dataset.processId = row.id ? String(row.id) : '';
+
+      const serviceLabel = document.createElement('div');
+      serviceLabel.className = 'lblappointment';
+      serviceLabel.textContent = row.service || '';
+
+      const dateLabel = document.createElement('div');
+      dateLabel.className = 'lbldate';
+      dateLabel.textContent = formatSelectedDate(row.selected_date);
+
+      const serialLabel = document.createElement('div');
+      serialLabel.className = 'lblserial';
+      serialLabel.textContent = formatSerialNumber(row);
+
+      const trashIcon = document.createElement('img');
+      trashIcon.className = 'btntrash-icon';
+      trashIcon.src = './assets/trash.png';
+      trashIcon.alt = '';
+      trashIcon.style.cursor = 'pointer';
+      trashIcon.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const processId = logRow.dataset.processId;
+        if (!processId) return;
+        if (!window.confirm('Delete this log entry?')) return;
+        fetch(adminApiBase + '/api/processes/' + encodeURIComponent(processId), {
+          method: 'DELETE'
+        })
+          .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
+          .then(function(data) {
+            if (data && data.ok) {
+              reloadLogs();
+            } else {
+              window.alert('Failed to delete log: ' + (data && data.error ? data.error : 'unknown error'));
+            }
+          })
+          .catch(function() {
+            window.alert('Could not reach server to delete log');
+          });
+      });
+
+      const statusIcon = document.createElement('img');
+      statusIcon.className = 'status-icon';
+      statusIcon.src = getStatusIconSrc(row.selected_date);
+      statusIcon.alt = row.selected_date && formatSelectedDate(row.selected_date) < getTodayIsoDate() ? 'Done' : 'Ongoing';
+
+      logRow.appendChild(serviceLabel);
+      logRow.appendChild(dateLabel);
+      logRow.appendChild(serialLabel);
+      logRow.appendChild(trashIcon);
+      logRow.appendChild(statusIcon);
+
+      return logRow;
+    };
+
+    const renderLogs = (rows) => {
+      if (!menuEl) return;
+      menuEl.innerHTML = '';
+
+      if (!rows || !rows.length) {
+        const empty = document.createElement('div');
+        empty.className = 'done log1';
+        empty.style.display = 'flex';
+        empty.style.alignItems = 'center';
+        empty.style.justifyContent = 'center';
+        empty.textContent = 'No logs found.';
+        menuEl.appendChild(empty);
+        return;
+      }
+
+      rows.forEach((row, index) => {
+        menuEl.appendChild(buildLogRow(row, index));
+      });
+
+      syncLogSerialSearch();
+    };
+
+    reloadLogs();
+
+    if (serialSearchField) {
+      serialSearchField.style.cursor = 'text';
+      serialSearchField.addEventListener('input', syncLogSerialSearch);
+      serialSearchField.addEventListener('keyup', syncLogSerialSearch);
+      serialSearchField.addEventListener('paste', () => { window.setTimeout(syncLogSerialSearch, 0); });
+      serialSearchField.addEventListener('blur', syncLogSerialSearch);
+    }
+
     const btnApplyLogs = document.querySelector('.btnapply');
     if (btnApplyLogs) {
       btnApplyLogs.style.cursor = 'pointer';
@@ -692,6 +1319,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const isAdminLoginPage = !!document.querySelector('.adminlogin');
   if (isAdminLoginPage) {
+    // Auto-run the hierarchy seed when login page opens
+    fetch('/api/admin/init-hierarchy').catch(function() {});
+
     const usernameField = document.querySelector('.tfusername');
     const passwordField = document.querySelector('.tfpassword');
     const eraseUsername = document.querySelector('.eraseusername');
@@ -760,7 +1390,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (passwordField) passwordField.addEventListener('input', updateLoginState);
 
     if (btnLoginAdmin) {
-      // initialize state
       updateLoginState();
 
       const attemptAdminLogin = async () => {
@@ -777,6 +1406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const response = await fetch(`${adminApiBase}/api/admin/login`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
           });
@@ -792,9 +1422,12 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('bw.admin.username', payload.admin && payload.admin.username ? payload.admin.username : username);
             sessionStorage.setItem('bw.admin.role', payload.admin && payload.admin.role ? payload.admin.role : '');
             sessionStorage.setItem('bw.admin.permissions', JSON.stringify(payload.admin && payload.admin.permissions ? payload.admin.permissions : {}));
-          } catch (e) { /* ignore storage errors */ }
+            if (payload.exportToken) {
+              sessionStorage.setItem('bw.admin.exportToken', payload.exportToken);
+            }
+          } catch (e) { /* ignore */ }
 
-          navigateWithFade('./admindashboard.html');
+          window.location.replace('./admindashboard.html' + (payload.exportToken ? '?auth=' + encodeURIComponent(payload.exportToken) : ''));
         } catch (error) {
           window.alert('Cannot reach admin login server. Ensure backend API is running.');
         } finally {
@@ -832,6 +1465,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Calendar implementation ---
   const calendarRoot = document.querySelector('.calendar');
   if (calendarRoot) {
+    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
     const monthDisplay = calendarRoot.querySelector('.calendar-month-field .september');
     const yearDisplay = calendarRoot.querySelector('.calendar-year-field .september');
     const prevIconBtn = calendarRoot.querySelector('.block .icon-button');
@@ -840,15 +1474,57 @@ document.addEventListener('DOMContentLoaded', () => {
     const schedulePage = !!document.querySelector('.schedules');
     const btnMark = schedulePage ? document.querySelector('.btnmark') : null;
     const btnMarkLabel = btnMark ? btnMark.querySelector('.apply') : null;
+    const unavailableDates = new Set();
 
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     let viewDate = new Date();
     let selectedButton = null;
     let selectedCellUnavailable = false;
+    const calendarFontColor = '#1d1b20';
+    const dateSelectedBackground = '#d7ebff';
+    const dateUnavailableBackground = '#fdecea';
+
+    const dateKey = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    };
+
+    const loadUnavailableDates = async () => {
+      try {
+        const response = await fetch(adminApiBase + '/api/schedules');
+        const payload = await response.json().catch(() => ({}));
+        unavailableDates.clear();
+        if (payload && payload.ok && Array.isArray(payload.dates)) {
+          payload.dates.forEach(function(row) {
+            if (row && row.schedule_date) {
+              unavailableDates.add(String(row.schedule_date).slice(0, 10));
+            }
+          });
+        }
+      } catch (error) {
+        unavailableDates.clear();
+      } finally {
+        renderCalendar(viewDate);
+      }
+    };
+
+    const saveScheduleDate = async (scheduleDate, isUnavailable) => {
+      try {
+        await fetch(adminApiBase + '/api/schedules', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
+        });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    };
 
     const updateBtnMarkState = () => {
       if (!btnMark || !btnMarkLabel) return;
-
       if (!selectedButton) {
         btnMark.style.opacity = '0.45';
         btnMark.style.cursor = 'not-allowed';
@@ -857,7 +1533,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnMarkLabel.innerHTML = 'Mark as<br>Unavailable';
         return;
       }
-
       btnMark.style.opacity = '1';
       btnMark.style.cursor = 'pointer';
       btnMark.style.pointerEvents = 'auto';
@@ -870,12 +1545,19 @@ document.addEventListener('DOMContentLoaded', () => {
       cell.classList.remove('selected');
       cell.style.background = '';
       const inner = cell.querySelector('.day-picker8, .day-picker17');
-      if (inner) inner.style.color = cell.classList.contains('unavailable') ? '#e17272' : '';
+      if (inner) inner.style.color = schedulePage ? (cell.classList.contains('unavailable') ? '#e17272' : '') : calendarFontColor;
     };
 
     const applySelectedCellState = (cell) => {
       if (!cell) return;
       cell.classList.add('selected');
+      if (!schedulePage) {
+        cell.style.background = dateSelectedBackground;
+        const inner = cell.querySelector('.day-picker8, .day-picker17');
+        if (inner) inner.style.color = calendarFontColor;
+        return;
+      }
+
       if (cell.classList.contains('unavailable')) {
         cell.style.background = '#fbe3e3';
         const inner = cell.querySelector('.day-picker8, .day-picker17');
@@ -903,6 +1585,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       updateBtnMarkState();
       if (typeof window.__updateScheduleApplyState === 'function') window.__updateScheduleApplyState();
+
+      const selectedDate = selectedButton.dataset.date;
+      if (selectedDate) {
+        if (selectedCellUnavailable) unavailableDates.add(selectedDate);
+        else unavailableDates.delete(selectedDate);
+        saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
+          if (!ok) {
+            window.alert('Could not save schedule change.');
+          }
+        });
+      }
     };
 
     if (btnMark) {
@@ -913,7 +1606,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCalendar(date) {
-      // clear selection and disable success
       selectedButton = null;
       selectedCellUnavailable = false;
       if (calendarRoot && calendarRoot.dataset) delete calendarRoot.dataset.selected;
@@ -921,18 +1613,15 @@ document.addEventListener('DOMContentLoaded', () => {
       updateBtnMarkState();
 
       const today = new Date(); today.setHours(0,0,0,0);
-
       const year = date.getFullYear();
       const month = date.getMonth();
       if (monthDisplay) monthDisplay.textContent = monthNames[month];
       if (yearDisplay) yearDisplay.textContent = year;
-
       if (!tbodyEl) return;
       tbodyEl.innerHTML = '';
 
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month+1, 0).getDate();
-
       const cells = [];
       for (let i=0;i<firstDay;i++) cells.push(null);
       for (let d=1; d<=daysInMonth; d++) cells.push(d);
@@ -945,17 +1634,23 @@ document.addEventListener('DOMContentLoaded', () => {
           const cell = document.createElement('div');
           cell.className = 'calendar-button';
           if (value === null) { row.appendChild(cell); continue; }
-
           const inner = document.createElement('div'); inner.className = 'day-picker8'; inner.textContent = value;
           cell.appendChild(inner);
-
           const cellDate = new Date(year, month, value); cellDate.setHours(0,0,0,0);
-          cell.dataset.date = cellDate.toISOString();
-
-          // disable past dates (include today)
+          const cellKey = dateKey(cellDate);
+          cell.dataset.date = cellKey;
+          const isUnavailable = unavailableDates.has(cellKey);
+          if (isUnavailable) {
+            cell.classList.add('unavailable');
+            cell.style.background = schedulePage ? '#fbe3e3' : dateUnavailableBackground;
+            inner.style.color = schedulePage ? '#e17272' : calendarFontColor;
+          }
           if (cellDate <= today) {
             cell.classList.add('disabled');
             cell.style.cursor = 'default';
+          } else if (!schedulePage && isUnavailable) {
+            cell.classList.add('disabled');
+            cell.style.cursor = 'not-allowed';
           } else {
             cell.style.cursor = 'pointer';
             cell.addEventListener('click', () => {
@@ -968,18 +1663,15 @@ document.addEventListener('DOMContentLoaded', () => {
               updateBtnMarkState();
             });
           }
-
           row.appendChild(cell);
         }
         tbodyEl.appendChild(row);
       }
     }
 
-    // chevrons
     if (prevIconBtn) prevIconBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth()-1); renderCalendar(viewDate); });
     if (nextIconBtn) nextIconBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth()+1); renderCalendar(viewDate); });
 
-    // month/year dropdowns (lightweight)
     const monthSelectEl = calendarRoot.querySelector('.calendar-month-field .select');
     const yearSelectEl = calendarRoot.querySelector('.calendar-year-field .select');
     function closeDropdowns(){ document.querySelectorAll('.cw-dropdown').forEach(d=>d.remove()); }
@@ -998,14 +1690,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (monthSelectEl) monthSelectEl.addEventListener('click',(e)=>{ e.stopPropagation(); const months = monthNames.map((m,i)=>({label:m,value:i})); makeDropdown(monthSelectEl, months, (m)=>{ viewDate.setMonth(m); renderCalendar(viewDate); }); });
     if (yearSelectEl) yearSelectEl.addEventListener('click',(e)=>{
       e.stopPropagation();
-      // limit year selection to current year and next year
       const todayYear = new Date().getFullYear();
       const years = [ { label: String(todayYear), value: todayYear }, { label: String(todayYear + 1), value: todayYear + 1 } ];
       makeDropdown(yearSelectEl, years, (y)=>{ viewDate.setFullYear(y); renderCalendar(viewDate); });
     });
 
-    // initial render
     renderCalendar(viewDate);
+    loadUnavailableDates();
     updateBtnMarkState();
     if (typeof window.__updateScheduleApplyState === 'function') window.__updateScheduleApplyState();
   }
@@ -1048,17 +1739,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (iConsent){ iConsent.addEventListener('click', toggleConsent); iConsent.style.cursor='pointer'; }
     setConsentChecked(false);
 
-    // editable input fields and erase buttons
     const inputFields = document.querySelectorAll('.tffirstname, .tfemail');
     inputFields.forEach((field) => {
       field.contentEditable = 'true'; field.style.outline='none'; field.style.minHeight='20px'; field.style.cursor='text';
       field.addEventListener('focus', function(){ this.style.borderBottom='2px solid #1d88d9'; });
       field.addEventListener('blur', function(){ this.style.borderBottom='none'; });
-
       const updateEraseBtn = function(){ const stateLayer = field.closest('.state-layer'); if (stateLayer){ const eraseBtn = stateLayer.querySelector('.erasefirst, .eraselast2'); if (eraseBtn) eraseBtn.style.display = field.textContent.trim().length > 0 ? 'flex' : 'none'; } };
       field.addEventListener('input', updateEraseBtn); field.addEventListener('keyup', updateEraseBtn); field.addEventListener('paste', updateEraseBtn);
-
-      // numeric-only handling for contact fields
       const isContactField = field.closest('.text-field5');
       if (isContactField) {
         field.addEventListener('input', function(){
@@ -1069,13 +1756,10 @@ document.addEventListener('DOMContentLoaded', () => {
         field.addEventListener('paste', function(e){ e.preventDefault(); const pasted = (e.clipboardData||window.clipboardData).getData('text'); const numeric = pasted.replace(/[^0-9]/g,''); document.execCommand('insertText', false, numeric); });
       }
     });
-
     const eraseButtons = document.querySelectorAll('.erasefirst, .eraselast2');
     eraseButtons.forEach(btn => { btn.style.cursor='pointer'; btn.addEventListener('click', function(){ const stateLayer = this.parentElement; const inputField = stateLayer.querySelector('.tffirstname, .tfemail'); if (inputField){ inputField.textContent=''; this.style.display='none'; inputField.focus(); } }); });
-
     const btnBack = document.querySelector('.btnback'); if (btnBack) btnBack.addEventListener('click', ()=>window.history.back());
     const btnNext = document.querySelector('.btndate'); if (btnNext) btnNext.addEventListener('click', ()=> navigateWithFade('./date.html'));
-
     const checkAllFieldsFilled = () => {
       const fields = document.querySelectorAll('.tffirstname, .tfemail'); let all=true; fields.forEach(f=>{ if (!f.textContent.trim()) all=false; });
       if (btnNext) {
@@ -1087,7 +1771,7 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAllFieldsFilled();
   }
 
-  // --- Upgrade images on high-DPR devices when higher-resolution assets exist ---
+  // --- DPR image upgrade ---
   (function upgradeImagesForDPR(){
     try {
       const dpr = window.devicePixelRatio || 1;
@@ -1095,11 +1779,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('img').forEach(img => {
         const src = img.getAttribute('src') || img.dataset.src;
         if (!src) return;
-
-        // Encourage smooth resampling by preferring the browser's default interpolation
         try { img.style.imageRendering = 'auto'; img.style.willChange = 'transform'; } catch(e){}
-
-        // If author provided a data-src-2x attribute, prefer it.
         const data2x = img.dataset.src2x || img.dataset['2x'];
         if (data2x) {
           const tester = new Image();
@@ -1108,8 +1788,6 @@ document.addEventListener('DOMContentLoaded', () => {
           tester.src = data2x;
           return;
         }
-
-        // Try filename@2x.ext convention (e.g., icon.png -> icon@2x.png)
         const parts = src.split('.');
         if (parts.length < 2) return;
         const ext = parts.pop();
@@ -1118,7 +1796,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const probe = new Image();
         probe.onload = () => { img.src = candidate; img.srcset = `${candidate} 2x, ${src} 1x`; };
         probe.onerror = () => {
-          // if the image is being upscaled (displayed wider than natural), try a 3x candidate
           try {
             const dispW = img.getBoundingClientRect().width || 0;
             const natW = img.naturalWidth || 0;
@@ -1136,10 +1813,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) { console.error('DPR image upgrade failed', e); }
   })();
 
-  // --- Canvas smoothing fallback for upscaled images (reduces aliasing) ---
+  // --- Canvas smoothing fallback ---
   (function smoothUpscaledImages(){
     try {
-      // run slightly after load to allow layout to settle
       setTimeout(() => {
         document.querySelectorAll('img').forEach(img => {
           try {
@@ -1150,18 +1826,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const natW = img.naturalWidth || 0;
             const natH = img.naturalHeight || 0;
             if (!natW || !natH) return;
-            // only act when the image is being upscaled
             if (dispW <= natW) return;
-            // avoid huge canvases
             if (dispW > 4000 || dispH > 4000) return;
-
             const canvas = document.createElement('canvas');
             canvas.width = dispW; canvas.height = dispH;
             const ctx = canvas.getContext('2d');
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, dispW, dispH);
-            // replace only if canvas produced valid output
             try {
               const dataUrl = canvas.toDataURL('image/png');
               if (dataUrl && dataUrl.length > 100) img.src = dataUrl;
@@ -1172,7 +1844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) { console.error('smoothUpscaledImages failed', e); }
   })();
 
-  // JS fallback: ensure `.remindertext` gets larger on small screens if CSS is blocked
+  // --- reminder text fallback ---
   (function reminderTextFallback(){
     try {
       const el = document.querySelector('.remindertext');
@@ -1181,7 +1853,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const w = window.innerWidth;
         const h = window.innerHeight;
         const ar = w / (h || 1);
-        // If device is small width, make large; if medium width, medium; if approx 16:10 aspect, increase too
         if (w <= 640) el.style.fontSize = '1.2rem';
         else if (w <= 1024) el.style.fontSize = '1.05rem';
         else if (w >= 1280 && w <= 1700) el.style.fontSize = '1.25rem';
@@ -1192,25 +1863,82 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) { /* ignore */ }
   })();
 
-  // --- btnmanageaccess: scroll to frame-div parent ---
-  const btnManageAccess = document.querySelector('.btnmanageaccess');
-  if (btnManageAccess) {
-    btnManageAccess.style.cursor = 'pointer';
-    btnManageAccess.addEventListener('click', () => {
-      const target = document.querySelector('.frame-div');
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // --- btnlogout ---
+  const btnLogout = document.querySelector('.btnlogout');
+  if (btnLogout) {
+    btnLogout.style.cursor = 'pointer';
+    btnLogout.addEventListener('click', async () => {
+      try {
+        await fetch('/api/admin/logout', { method: 'POST' });
+      } catch (e) { /* ignore */ }
+      sessionStorage.removeItem('bw.admin.username');
+      sessionStorage.removeItem('bw.admin.role');
+      sessionStorage.removeItem('bw.admin.permissions');
+      window.location.replace('./index.html');
     });
   }
 
-  // --- btnback (global): send user to admin dashboard ---
+  // --- Permission check helper for dashboard buttons ---
+  var toastStyle = document.createElement('style');
+  toastStyle.textContent = '.cw-no-perm-toast{position:fixed;left:50%;bottom:2.2vw;transform:translateX(-50%) translateY(1rem);opacity:0;pointer-events:none;z-index:9999;background:rgba(254,96,96,0.96);color:#fff;border-radius:999px;padding:0.9vw 1.5vw;font:600 clamp(0.9rem,1.1vw,1.1rem)/1.1 "Cal Sans",sans-serif;box-shadow:0 10px 30px rgba(0,0,0,0.18);transition:opacity 220ms ease,transform 220ms ease}.cw-no-perm-toast.is-visible{opacity:1;transform:translateX(-50%) translateY(0)}';
+  document.head.appendChild(toastStyle);
+  var noPermToast = document.createElement('div');
+  noPermToast.className = 'cw-no-perm-toast';
+  noPermToast.textContent = 'No Permission';
+  document.body.appendChild(noPermToast);
+  var hideTimer = null;
+  function showNoPermToast() {
+    if (hideTimer) { window.clearTimeout(hideTimer); hideTimer = null; }
+    noPermToast.classList.add('is-visible');
+    hideTimer = window.setTimeout(function() {
+      noPermToast.classList.remove('is-visible');
+    }, 1500);
+  }
+  function checkPermOrToast(btnKey, fn) {
+    return function(e) {
+      e.stopPropagation();
+      var perms;
+      try { perms = JSON.parse(sessionStorage.getItem('bw.admin.permissions') || '{}'); } catch(ex) { perms = {}; }
+      if (perms[btnKey] === true) {
+        fn.call(this, e);
+      } else {
+        e.preventDefault();
+        showNoPermToast();
+      }
+    };
+  }
+
+  // --- btnmanageaccess: scroll to frame-div ---
+  var btnManageAccess = document.querySelector('.btnmanageaccess');
+  if (btnManageAccess) {
+    btnManageAccess.style.cursor = 'pointer';
+    btnManageAccess.addEventListener('click', checkPermOrToast('btnmanageaccess', function() {
+      var target = document.querySelector('.frame-div');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+  }
+
+  // --- update page btnback: route to index.html ---
+  const isUpdatePage = !!document.querySelector('.update');
+  if (isUpdatePage) {
+    const updateBtnBack = document.querySelector('.btnback');
+    if (updateBtnBack) {
+      updateBtnBack.style.cursor = 'pointer';
+      updateBtnBack.addEventListener('click', () => { navigateWithFade('./index.html'); });
+    }
+  }
+
+  // --- btnback (global) - skip update page's btnback since it has its own handler ---
   document.querySelectorAll('.btnback').forEach((btn) => {
     try {
+      if (btn.closest('.info')) return;
+      if (btn.closest('.update')) return;
       btn.style.cursor = 'pointer';
       btn.addEventListener('click', () => { navigateWithFade('./admindashboard.html'); });
-    } catch (e) { /* ignore if element not interactive */ }
+    } catch (e) { /* ignore */ }
   });
 
-  // --- btninfo / click-here-for: open info page ---
+  // --- btninfo ---
   const btnInfo = document.querySelector('.click-here-for') || document.querySelector('.btninfo');
   if (btnInfo) {
     btnInfo.style.cursor = 'pointer';
@@ -1219,105 +1947,152 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- btnpermission: navigate to permissions page ---
-  document.querySelectorAll('.btnpermission').forEach((btnPermission) => {
+  // --- btnpermission ---
+  document.querySelectorAll('.btnpermission').forEach(function(btnPermission) {
     btnPermission.style.cursor = 'pointer';
-    btnPermission.addEventListener('click', () => {
+    btnPermission.addEventListener('click', checkPermOrToast('btnpermission', function() {
       navigateWithFade('./permissions.html');
-    });
+    }));
   });
 
-  // --- btnnewuser: navigate to add-new-admin page ---
-  document.querySelectorAll('.btnnewuser').forEach((btnNewUser) => {
+  // --- btnnewuser ---
+  document.querySelectorAll('.btnnewuser').forEach(function(btnNewUser) {
     btnNewUser.style.cursor = 'pointer';
-    btnNewUser.addEventListener('click', () => {
+    btnNewUser.addEventListener('click', checkPermOrToast('btnnewuser', function() {
       navigateWithFade('./newadmin.html');
-    });
+    }));
   });
 
-  // --- btndbconfig: scroll to rectangle-parent2 ---
+  // --- btndbconfig ---
   const btnDbConfig = document.querySelector('.btndbconfig');
   if (btnDbConfig) {
     btnDbConfig.style.cursor = 'pointer';
-    btnDbConfig.addEventListener('click', () => {
+    btnDbConfig.addEventListener('click', checkPermOrToast('btndbconfig', function() {
       const target = document.querySelector('.rectangle-parent2');
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    }));
   }
 
-  // --- btnimport: open CSV file selector ---
+  // --- btnexport ---
+  const btnExport = document.querySelector('.btnexport');
+  if (btnExport) {
+    btnExport.style.cursor = 'pointer';
+    btnExport.addEventListener('click', checkPermOrToast('btnexport', function(e) {
+      const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+      const exportUrl = adminApiBase + '/api/admin/export-archive';
+      let exportToken = '';
+      try { exportToken = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (err) { exportToken = ''; }
+      fetch(exportUrl, {
+        credentials: 'include',
+        headers: exportToken ? { 'Authorization': 'Bearer ' + exportToken } : {}
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || ('Export failed with status ' + response.status));
+          }
+
+          const blob = await response.blob();
+          const disposition = response.headers.get('content-disposition') || '';
+          const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+          const filename = filenameMatch ? filenameMatch[1] : 'barangayArchive.zip';
+          const objectUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1500);
+        })
+        .catch((error) => {
+          console.error('[btnexport] export failed:', error);
+          window.alert(error.message || 'Export failed');
+        });
+    }));
+  }
+
+  // --- btnimport ---
   const btnImport = document.querySelector('.btnimport');
   if (btnImport) {
     btnImport.style.cursor = 'pointer';
 
-    const toastStyle = document.createElement('style');
-    toastStyle.textContent = `
-      .cw-upload-toast {
-        position: fixed;
-        left: 50%;
-        bottom: 2.2vw;
-        transform: translateX(-50%) translateY(1rem);
-        opacity: 0;
-        pointer-events: none;
-        z-index: 9999;
-        background: rgba(29, 136, 217, 0.96);
-        color: #fff;
-        border-radius: 999px;
-        padding: 0.9vw 1.5vw;
-        font: 600 clamp(0.9rem, 1.1vw, 1.1rem) / 1.1 Cal Sans, sans-serif;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-        transition: opacity 220ms ease, transform 220ms ease;
-      }
-      .cw-upload-toast.is-visible {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-    `;
-    document.head.appendChild(toastStyle);
+    const zipInput = document.createElement('input');
+    zipInput.type = 'file';
+    zipInput.accept = '.zip,application/zip';
+    zipInput.style.display = 'none';
+    document.body.appendChild(zipInput);
 
     const uploadToast = document.createElement('div');
     uploadToast.className = 'cw-upload-toast';
-    uploadToast.textContent = 'Upload Success!';
+    uploadToast.textContent = 'Import Success!';
     document.body.appendChild(uploadToast);
-
     let toastHideTimer = null;
     const showUploadToast = () => {
-      if (toastHideTimer) {
-        window.clearTimeout(toastHideTimer);
-        toastHideTimer = null;
-      }
-
+      if (toastHideTimer) { window.clearTimeout(toastHideTimer); toastHideTimer = null; }
       uploadToast.classList.add('is-visible');
       toastHideTimer = window.setTimeout(() => {
         uploadToast.classList.remove('is-visible');
-        toastHideTimer = window.setTimeout(() => {
-          uploadToast.classList.remove('is-visible');
-        }, 220);
+        toastHideTimer = window.setTimeout(() => { uploadToast.classList.remove('is-visible'); }, 220);
       }, 1000);
     };
 
-    const csvInput = document.createElement('input');
-    csvInput.type = 'file';
-    csvInput.accept = '.csv,text/csv';
-    csvInput.style.display = 'none';
-    document.body.appendChild(csvInput);
-
-    btnImport.addEventListener('click', () => {
-      csvInput.value = '';
-      csvInput.click();
-    });
-
-    csvInput.addEventListener('change', () => {
-      if (!csvInput.files || !csvInput.files.length) return;
-      const file = csvInput.files[0];
-      const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
-      if (!isCsv) {
-        csvInput.value = '';
+    zipInput.addEventListener('change', () => {
+      if (!zipInput.files || !zipInput.files.length) return;
+      const file = zipInput.files[0];
+      const isZip = /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
+      if (!isZip) {
+        zipInput.value = '';
+        window.alert('Please upload a .zip file.');
         return;
       }
 
-      showUploadToast();
+      const confirmImport = window.confirm(
+        'Importing this archive will overwrite the current database with the contents of the zip file. Do you want to continue?'
+      );
+      if (!confirmImport) {
+        zipInput.value = '';
+        return;
+      }
+
+      const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+      const importUrl = adminApiBase + '/api/admin/import-archive';
+      let exportToken = '';
+      try { exportToken = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (err) { exportToken = ''; }
+
+      fetch(importUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: Object.assign(
+          {
+            'Content-Type': 'application/zip',
+            'X-File-Name': file.name
+          },
+          exportToken ? { 'Authorization': 'Bearer ' + exportToken } : {}
+        ),
+        body: file
+      })
+        .then(async (response) => {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(payload.error || ('Import failed with status ' + response.status));
+          }
+          showUploadToast();
+          window.setTimeout(() => window.location.reload(), 700);
+        })
+        .catch((error) => {
+          console.error('[btnimport] import failed:', error);
+          window.alert(error.message || 'Import failed');
+        })
+        .finally(() => {
+          zipInput.value = '';
+        });
     });
+
+    btnImport.addEventListener('click', checkPermOrToast('btnimport', function(e) {
+      zipInput.value = '';
+      zipInput.click();
+    }));
   }
 
 });

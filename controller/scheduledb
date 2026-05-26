@@ -1,0 +1,13 @@
+
+USE [barangayworks];
+
+-- Store blocked schedule dates used by schedule.html and date.html
+IF OBJECT_ID('dbo.schedule_unavailable_dates', 'U') IS NULL
+BEGIN
+	CREATE TABLE dbo.schedule_unavailable_dates (
+		schedule_date DATE NOT NULL PRIMARY KEY,
+		is_unavailable BIT NOT NULL DEFAULT 1,
+		updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+	);
+END;
+

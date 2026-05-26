@@ -3,6 +3,48 @@
 <head>
   	<meta charset="utf-8">
   	<meta name="viewport" content="initial-scale=1, width=device-width">
+  	<script>
+  		(function() {
+  			// If loaded from file://, redirect to the server login page immediately
+  			if (window.location.protocol === 'file:') {
+  				window.location.replace('http://localhost:3000/adminlogin.html');
+  				return;
+  			}
+
+  			// If loaded from server but no session, redirect to login
+  			try {
+  				var username = sessionStorage.getItem('bw.admin.username');
+  				if (!username) {
+  					window.location.replace('/adminlogin.html');
+  					return;
+  				}
+  			} catch (e) {
+  				window.location.replace('/adminlogin.html');
+  				return;
+  			}
+
+  			// Server-side validation + refresh permissions in sessionStorage
+  			var xhr = new XMLHttpRequest();
+  			xhr.open('GET', '/api/admin/' + encodeURIComponent(username) + '/permissions', true);
+			xhr.withCredentials = true;
+  			xhr.onload = function() {
+  				try {
+  					var data = JSON.parse(xhr.responseText);
+  					if (!data.ok || !data.admin) {
+  						sessionStorage.removeItem('bw.admin.username');
+  						sessionStorage.removeItem('bw.admin.role');
+  						sessionStorage.removeItem('bw.admin.permissions');
+  						window.location.replace('/adminlogin.html');
+  						return;
+  					}
+  					// Refresh permissions in sessionStorage so permission checks use latest data
+  					sessionStorage.setItem('bw.admin.role', data.admin.role);
+  					sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions));
+  				} catch(e) {}
+  			};
+  			xhr.send();
+  		})();
+  	</script>
   	
   	<link rel="stylesheet"  href="./admindashboard.css" />
   	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas Neue:wght@400&display=swap" />
@@ -106,6 +148,9 @@
   	
   	
   	
+	<div class="btnlogout">
+		<div class="logout">Logout</div>
+	</div>
 	<script src="./main.js"></script>
 	</body>
 	</html>
