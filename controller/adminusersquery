@@ -1,0 +1,78 @@
+-- Use your target database first
+-- Example:
+-- USE barangayworks;
+
+-- 1) View all admin roles
+SELECT
+	id,
+	role_name,
+	description,
+	created_at
+FROM dbo.admin_roles
+ORDER BY id;
+
+-- 2) View all admin users
+SELECT
+	id,
+	username,
+	display_name,
+	email,
+	role_id,
+	is_active,
+	created_at,
+	updated_at
+FROM dbo.admin_users
+ORDER BY id;
+
+-- 3) View all role permissions
+SELECT
+	role_id,
+	can_click_btnmanageaccess,
+	can_click_btnschedules,
+	can_click_btnlogs,
+	can_click_btndbconfig,
+	can_click_btnpermission,
+	can_click_btnnewuser,
+	can_click_btnimport,
+	can_click_btnexport,
+	updated_at
+FROM dbo.admin_role_permissions
+ORDER BY role_id;
+
+-- 4) Combined view: admin + role + dashboard button permissions
+SELECT
+	u.username,
+	u.display_name,
+	u.is_active,
+	r.role_name,
+	p.can_click_btnmanageaccess,
+	p.can_click_btnschedules,
+	p.can_click_btnlogs,
+	p.can_click_btndbconfig,
+	p.can_click_btnpermission,
+	p.can_click_btnnewuser,
+	p.can_click_btnimport,
+	p.can_click_btnexport
+FROM dbo.admin_users u
+JOIN dbo.admin_roles r ON r.id = u.role_id
+LEFT JOIN dbo.admin_role_permissions p ON p.role_id = r.id
+ORDER BY u.username;
+
+-- 5) Supervisor only
+SELECT
+	u.username,
+	u.display_name,
+	u.is_active,
+	r.role_name,
+	p.can_click_btnmanageaccess,
+	p.can_click_btnschedules,
+	p.can_click_btnlogs,
+	p.can_click_btndbconfig,
+	p.can_click_btnpermission,
+	p.can_click_btnnewuser,
+	p.can_click_btnimport,
+	p.can_click_btnexport
+FROM dbo.admin_users u
+JOIN dbo.admin_roles r ON r.id = u.role_id
+LEFT JOIN dbo.admin_role_permissions p ON p.role_id = r.id
+WHERE r.role_name = 'Supervisor';

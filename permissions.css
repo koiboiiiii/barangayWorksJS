@@ -1,0 +1,339 @@
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html,
+body {
+	width: 100%;
+	min-height: 100%;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	line-height: normal;
+	background: #fff;
+	overflow-x: hidden;
+	overflow-y: auto;
+}
+
+.permissions {
+	width: 100%;
+	min-height: 100svh;
+	height: 53.57vw;
+	position: relative;
+	background-color: #fff;
+	overflow-x: hidden;
+	overflow-y: auto;
+	text-align: center;
+	font-size: clamp(3rem, 5.36vw, 90px);
+	color: #d5e8f6;
+	font-family: 'Bebas Neue';
+}
+
+.rectangle-parent {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	max-width: 100vw;
+	height: 53.57vw;
+	overflow: hidden;
+}
+
+.frame-child {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	width: 100%;
+	height: 43.21vw;
+	background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+}
+
+.manage-permissions {
+	position: absolute;
+	top: 3.1vw;
+	left: 28.69vw;
+	width: 42.56vw;
+	height: 5.12vw;
+	display: inline-block;
+	letter-spacing: -0.92px;
+	line-height: 4.74vw;
+}
+
+.rectangle-group {
+	position: absolute;
+	top: 11.07vw;
+	left: 20.89vw;
+	width: 58.15vw;
+	height: 33.1vw;
+	overflow: visible;
+	font-size: clamp(1rem, 1.55vw, 26px);
+	color: #f5f5f5;
+	font-family: 'Cal Sans';
+}
+
+.frame-item {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 58.15vw;
+	height: 33.1vw;
+	border-radius: 1.19vw;
+	background-color: rgba(26, 64, 114, 0.7);
+	opacity: 0.61;
+}
+
+.btnapply {
+	position: absolute;
+	top: 27.02vw;
+	left: 37.38vw; /* moved to match newadmin.btnregister */
+	width: 12.38vw;
+	height: 4.64vw;
+	border-radius: 1.19vw;
+	background-color: #1d88d9;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.71vw;
+	box-sizing: border-box;
+	cursor: pointer;
+	z-index: 1;
+}
+
+/* Back button on permissions page (matches newadmin.btnback position/style) */
+.btnback {
+    position: absolute;
+    top: 27.02vw;
+    left: 8.45vw; /* same as newadmin.btnback */
+    border-radius: 1.19vw;
+    background-color: #1d88d9;
+    width: 12.38vw;
+    height: 4.64vw;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.71vw;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: clamp(1rem, 1.55vw, 26px);
+    color: #f5f5f5;
+    z-index: 1;
+}
+
+.apply {
+	position: relative;
+	line-height: 100%;
+}
+
+.menu {
+	position: absolute;
+	top: 2.98vw;
+	left: 9.88vw;
+	width: 38.45vw;
+	height: 22.5vw;
+	border-radius: 0.95vw;
+	box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.3);
+	background-color: #f7f2fa;
+	overflow: visible;
+	display: flex;
+	align-items: flex-start;
+	text-align: left;
+	font-size: clamp(0.9rem, 1.19vw, 20px);
+	color: #1d1b20;
+	font-family: Roboto;
+	z-index: 2;
+}
+
+.admin1 {
+	position: relative;
+	width: 100%;
+	height: 4.99vw;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 0.12vw 0;
+	box-sizing: border-box;
+	isolation: isolate;
+	z-index: 3;
+}
+
+.icon {
+	position: absolute;
+	top: 1.9vw;
+	right: 2.67vw;
+	width: 0.61vw;
+	height: 1.21vw;
+	margin: 0 !important;
+	z-index: 0;
+	cursor: pointer;
+}
+
+.lbladminname {
+	position: absolute;
+	top: 1.58vw;
+	left: 4.4vw;
+	width: fit-content;
+	height: auto;
+	margin: 0 !important;
+	display: inline-flex;
+	align-items: center;
+	overflow: visible;
+	white-space: nowrap;
+	letter-spacing: 0.1px;
+	line-height: 1.19vw;
+	font-weight: 500;
+	z-index: 1;
+}
+
+.icon2 {
+	position: absolute;
+	top: 1.28vw;
+	left: 1.12vw;
+	width: 1.8vw;
+	height: 1.8vw;
+	margin: 0 !important;
+	object-fit: contain;
+	object-position: center;
+	display: block;
+	z-index: 2;
+}
+
+.editadminname-icon {
+	position: absolute;
+	top: 1.62vw;
+	left: 10.1vw;
+	width: 0.88vw;
+	height: 0.88vw;
+	margin: 0 !important;
+	object-fit: contain;
+	object-position: center;
+	display: block;
+	opacity: 0;
+	transition: opacity 500ms ease;
+	pointer-events: none;
+	cursor: pointer;
+	z-index: 2;
+}
+
+.editadminname-icon.is-hover-visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.role-dropdown {
+	position: absolute;
+	top: 4.99vw;
+	left: 0.85vw;
+	right: 0.85vw;
+	display: none;
+	flex-direction: column;
+	gap: 0.42vw;
+	padding: 0.42vw 0 0.56vw;
+	z-index: 4;
+}
+
+.menu.role-dropdown-open .role-dropdown {
+	display: flex;
+}
+
+.role-option {
+	appearance: none;
+	border: 0;
+	width: 100%;
+	background: rgba(255, 255, 255, 0.95);
+	border-radius: 0.85vw;
+	display: flex;
+	align-items: center;
+	gap: 0.85vw;
+	padding: 0.72vw 0.95vw;
+	text-align: left;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.role-option:hover,
+.role-option:focus-visible {
+	background: #e9f4fd;
+	outline: none;
+}
+
+.role-option.is-selected {
+	background: #d7ebff;
+}
+
+.role-option-icon {
+	width: 1.6vw;
+	height: 1.6vw;
+	flex: 0 0 auto;
+	object-fit: contain;
+	object-position: center;
+	display: block;
+}
+
+.role-option-label {
+	line-height: 1;
+}
+
+@media (max-width: 900px) {
+	.permissions {
+		height: auto;
+		min-height: 100svh;
+	}
+
+	.rectangle-parent {
+		height: 53.57vw;
+	}
+
+	.rectangle-group {
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(92vw, 977px);
+	}
+
+	.frame-item {
+		width: 100%;
+		height: 33.1vw;
+	}
+
+	.menu {
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(76vw, 646px);
+		height: auto;
+	}
+
+	.btnapply {
+		left: 50%;
+		transform: translateX(-50%);
+		width: clamp(140px, 16vw, 208px);
+		height: clamp(54px, 6vw, 78px);
+	}
+
+	.manage-permissions {
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(84vw, 715px);
+	}
+}
+
+@media (max-width: 640px) {
+	.manage-permissions {
+		width: min(88vw, 715px);
+	}
+
+	.rectangle-group {
+		width: min(94vw, 977px);
+	}
+
+	.menu {
+		width: min(88vw, 646px);
+	}
+}

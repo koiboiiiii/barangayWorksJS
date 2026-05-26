@@ -1,0 +1,186 @@
+.info {
+	width: 100vw;
+	height: 100svh;
+	position: relative;
+	background-color: #fff;
+	overflow: hidden;
+	text-align: left;
+	color: #f5f5f5;
+	font-family: 'Cal Sans', system-ui, sans-serif;
+	/* base font-size is bounded for accessibility */
+	font-size: clamp(14px, 1.05vw, 18px);
+}
+.rectangle-parent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100svh;
+  overflow: hidden;
+}
+.frame-child {
+  position: absolute;
+  width: 100%;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+  height: calc(244 / 900 * 100svh);
+}
+.barangay-appointment-schedulin {
+  position: absolute;
+  top: calc(285 / 900 * 100svh);
+  left: calc(57 / 1680 * 100vw);
+  letter-spacing: -0.92px;
+  font-family: 'Bebas Neue', sans-serif;
+  color: #56a8e7;
+  display: inline-block;
+  width: calc(420 / 1680 * 100vw);
+  /* larger heading scale to match original visual weight */
+  font-size: clamp(36px, 4.2vw, 96px);
+  line-height: 1.02;
+}
+.image-1-icon {
+  position: absolute;
+  top: calc(56 / 900 * 100svh);
+  left: calc(57 / 1680 * 100vw);
+  width: calc(160 / 1680 * 100vw);
+  height: calc(160 / 900 * 100svh);
+  object-fit: cover;
+}
+.image-2-icon {
+  position: absolute;
+  top: calc(56 / 900 * 100svh);
+  left: calc(1458 / 1680 * 100vw);
+  width: calc(145 / 1680 * 100vw);
+  height: calc(160 / 900 * 100svh);
+  object-fit: cover;
+}
+.rectangle-group {
+  position: absolute;
+  width: 100%;
+  top: calc(810 / 900 * 100svh);
+  right: 0;
+  left: 0;
+  height: calc(90 / 900 * 100svh);
+  font-size: clamp(12px, 0.9vw, 16px);
+}
+.group-child {
+  position: absolute;
+  width: 100%;
+  top: 0;
+  right: 0;
+  left: 0;
+  background-color: #00579a;
+  height: calc(90 / 900 * 100svh);
+}
+.all-rights-reserved {
+	position: absolute;
+	top: calc(37 / 900 * 100svh);
+	left: calc(57 / 1680 * 100vw);
+	line-height: 1;
+	font-size: clamp(12px, 0.9vw, 14px);
+}
+.btnback {
+  position: absolute;
+  top: calc(672 / 900 * 100svh);
+  left: calc(59 / 1680 * 100vw);
+  border-radius: calc(20 / 1680 * 100vw);
+  background-color: #1d88d9;
+  width: calc(208 / 1680 * 100vw);
+  height: calc(78 / 900 * 100svh);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(12 / 1680 * 100vw);
+  box-sizing: border-box;
+  text-align: center;
+}
+.back {
+  width: calc(85 / 1680 * 100vw);
+  position: relative;
+  line-height: 1;
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: clamp(16px, 1.4vw, 28px);
+  color: #fff;
+}
+.rectangle-container {
+  position: absolute;
+  top: calc(244 / 900 * 100svh);
+  right: calc(120 / 1680 * 100vw);
+  width: calc(930 / 1680 * 100vw);
+  height: calc(506 / 900 * 100svh);
+  overflow: hidden;
+  text-align: center;
+  color: #56a8e7;
+  font-family: 'Bebas Neue', sans-serif;
+  /* stronger headline sizing for the container */
+  font-size: clamp(20px, 2.6vw, 56px);
+}
+.frame-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: calc(20 / 1680 * 100vw);
+  background-color: #c7dfff;
+  width: calc(930 / 1680 * 100vw);
+  height: calc(506 / 900 * 100svh);
+  opacity: 0.61;
+}
+.how-to-request {
+  position: relative;
+  z-index: 1;
+  text-decoration: underline;
+  letter-spacing: -0.92px;
+  display: block;
+  width: 100%;
+  /* ensure subtitle reads large on landscape screens */
+  font-size: clamp(24px, 3.2vw, 64px);
+  line-height: 1.02;
+  margin: 0 0 calc(8 / 900 * 100svh) 0;
+}
+.this-portal-lets-container {
+  position: relative;
+  z-index: 1;
+  line-height: 1.25;
+  font-family: 'Cairo', sans-serif;
+  color: #000;
+  text-align: left;
+  display: block;
+  width: 100%;
+  /* body/copy text should be comfortably readable */
+  font-size: clamp(16px, 1.9vw, 34px);
+  overflow: auto;
+  max-height: calc(100% - 6svh);
+}
+
+/* layout children inside rectangle-container in normal flow */
+.rectangle-container {
+  padding: calc(24 / 900 * 100svh) calc(32 / 1680 * 100vw);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: calc(8 / 900 * 100svh);
+}
+
+/* ensure decorative background is behind content */
+.frame-item { z-index: 0; pointer-events: none; }
+.how-to-book-step {
+  font-size: clamp(14px, 1.2vw, 22px);
+}
+
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { margin: 0; padding: 0; }
+
+/* Small screen adjustments */
+@media (max-width: 640px) {
+  .barangay-appointment-schedulin { font-size: clamp(18px, 5.4vw, 28px); left: 4vw; top: 8svh; width: 60vw; }
+  .rectangle-container { right: 6vw; width: 86vw; left: auto; }
+  .this-portal-lets-container { font-size: clamp(13px, 3.8vw, 18px); width: 86vw; left: 6vw; }
+  .image-2-icon { display: none; }
+}

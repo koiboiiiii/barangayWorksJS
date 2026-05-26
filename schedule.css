@@ -1,0 +1,168 @@
+* {
+  	margin: 0;
+  	padding: 0;
+}
+
+body {
+  	margin: 0;
+  	padding: 0;
+}
+* { box-sizing: border-box; }
+
+html, body { width:100%; min-height:100%; }
+
+body { margin:0; padding:0; }
+
+.schedules {
+    width: 100%;
+    min-height: 100svh;
+    height: 53.57vw; /* 900/1680 */
+    position: relative;
+    background-color: #fff;
+    overflow: hidden;
+    text-align: center;
+    font-size: clamp(3rem, 5.36vw, 90px);
+    color: #d5e8f6;
+    font-family: 'Bebas Neue';
+}
+.rectangle-parent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 53.57vw; /* 900/1680 */
+    overflow: hidden;
+}
+.frame-child {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(180deg, #00579a, rgba(0, 87, 153, 0));
+    height: 43.21vw; /* 726/1680 */
+}
+.manage-schedules {
+    position: absolute;
+    top: 3.10vw; /* 52/1680 */
+    left: 28.69vw; /* 482/1680 */
+    letter-spacing: -0.92px;
+    line-height: 4.74vw; /* 79.64/1680 */
+    display: inline-block;
+    width: 42.56vw; /* 715/1680 */
+    height: 5.12vw; /* 86/1680 */
+}
+.rectangle-group {
+    position: absolute;
+    top: 12.50vw; /* 210/1680 */
+    left: 20.89vw; /* 351/1680 */
+    width: 58.15vw; /* 977/1680 */
+    height: 33.10vw; /* 556/1680 */
+    overflow: hidden;
+    font-size: clamp(1rem, 1.55vw, 26px);
+    color: #f5f5f5;
+    font-family: 'Cal Sans';
+}
+.frame-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 1.19vw; /* 20/1680 */
+    background-color: rgba(26, 64, 114, 0.7);
+    width: 58.15vw; /* 977/1680 */
+    height: 33.10vw; /* 556/1680 */
+    opacity: 0.61;
+}
+.btnapply {
+    position: absolute;
+    top: 27.02vw; /* 454/1680 */
+    left: 36.79vw; /* 618/1680 */
+    border-radius: 1.19vw; /* 20/1680 */
+    background-color: #1d88d9;
+    width: 12.38vw; /* 208/1680 */
+    height: 4.64vw; /* 78/1680 */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.71vw; /* 12/1680 */
+    box-sizing: border-box;
+}
+.apply { position: relative; line-height: 100%; }
+.btnback {
+    position: absolute;
+    top: 27.02vw; /* 454/1680 */
+    left: 8.99vw; /* 151/1680 */
+    border-radius: 1.19vw;
+    background-color: #1d88d9;
+    width: 12.38vw;
+    height: 4.64vw;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.71vw;
+    box-sizing: border-box;
+}
+.btnmark {
+    position: absolute;
+    top: 27.02vw; /* 454/1680 */
+    left: 22.92vw; /* 385/1680 */
+    border-radius: 1.19vw;
+    background-color: #1d88d9;
+    width: 12.38vw;
+    height: 4.64vw;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.71vw;
+    box-sizing: border-box;
+}
+.calendar {
+    position: absolute;
+    top: 2.08vw;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 1.21vw;
+    background-color: #fff;
+    border: 0.077vw solid #d9d9d9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.8vw;
+    isolation: isolate;
+    text-align: left;
+    font-size: 1.05vw;
+    color: #1e1e1e;
+    font-family: Inter;
+}
+.block { align-self: stretch; display: flex; align-items: center; gap: 1.21vw; z-index: 1; }
+.icon-button { border-radius: 2.42vw; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 0.6vw; }
+.chevron-left-icon { height: 1.52vw; width: 1.52vw; position: relative; cursor: pointer; }
+.chevron-right-icon { height: 1.52vw; width: 1.52vw; position: relative; cursor: pointer; }
+.calendar-select-group { flex: 1; display: flex; align-items: flex-start; isolation: isolate; gap: 0.6vw; }
+.calendar-month-field { flex: 1; display: flex; flex-direction: column; align-items: flex-start; z-index: 1; }
+.select { width: 100%; border-radius: 0.61vw; background-color: #fff; border: 0.077vw solid #d9d9d9; box-sizing: border-box; display: flex; align-items: center; padding: 0.45vw; gap: 0.6vw; }
+.september { flex: 1; position: relative; line-height: 100%; }
+.chevron-down-icon { height: 1.21vw; width: 1.21vw; position: relative; }
+.calendar-year-field { flex: 1; display: flex; flex-direction: column; align-items: flex-start; z-index: 0; }
+.table { display: flex; flex-direction: column; align-items: center; padding: 1.21vw 0 0; z-index: 0; text-align: center; font-size: 0.91vw; color: #757575; font-family: Geist; }
+.thead { align-self: stretch; display: flex; align-items: center; justify-content: center; gap: 0.077vw; }
+.td { flex: 1; display: flex; align-items: center; justify-content: center; }
+.day-picker { position: relative; line-height: 1.51vw; }
+.tbody { display: flex; flex-direction: column; align-items: center; isolation: isolate; gap: 0.077vw; font-size: 1.21vw; color: #1e1e1e; font-family: Inter; }
+.row { display: flex; align-items: center; gap: 0.077vw; z-index: 4; }
+.calendar-button { height: 2.6vw; width: 2.6vw; border-radius: 0.5vw; display: flex; align-items: center; justify-content: center; padding: 0.6vw; box-sizing: border-box; }
+.day-picker8 { position: relative; line-height: 1.19vw; flex-shrink: 0; }
+.row2 { display: flex; align-items: center; gap: 0.077vw; z-index: 3; color: #2c2c2c; }
+.calendar-button8 { height: 2.6vw; width: 2.6vw; border-radius: 0.5vw; display: flex; align-items: center; justify-content: center; padding: 0.6vw; box-sizing: border-box; color: #1e1e1e; }
+.calendar-button10 { height: 2.6vw; width: 2.6vw; border-radius: 0.5vw; background-color: #2c2c2c; display: flex; align-items: center; justify-content: center; padding: 0.6vw; box-sizing: border-box; color: #f5f5f5; }
+.calendar-button11 { height: 2.6vw; width: 2.6vw; border-radius: 0.5vw; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; padding: 0.6vw; box-sizing: border-box; }
+.day-picker17 { position: relative; line-height: 140%; flex-shrink: 0; }
+.row3 { display: flex; align-items: center; gap: 0.077vw; z-index: 2; }
+.row4 { display: flex; align-items: center; gap: 0.077vw; z-index: 1; }
+.row5 { display: flex; align-items: center; gap: 0.077vw; z-index: 0; color: #b3b3b3; }
+.calendar-button.disabled { opacity: 0.45; cursor: default; pointer-events: none; background: transparent !important; }
+.calendar-button.disabled .day-picker8 { color: #9a9a9a !important; }
+.dateunavailable { position: absolute; top: 25.78vw; left: 20.12vw; font-size: 0.95vw; line-height: 100%; color: #e17272; display: none; text-shadow: 0px 0.03vw 0.24vw rgba(0, 0, 0, 0.07); }
