@@ -32,13 +32,9 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // path param arrives as req.query.path in Vercel preview environment, but
-    // the raw URL contains the full path. We'll derive the backend path by
-    // taking req.url after '/api/admin'.
-    let backendPath = req.url || '';
-    // Strip any leading '/api/admin' prefix if present
-    backendPath = backendPath.replace(/^\/api\/admin/, '') || '/';
-
+    // Use the incoming request URL as the backend path (preserve /api/admin prefix)
+    // so the backend receives the same route structure.
+    const backendPath = req.url || '';
     const target = new URL(backendPath, backendBase).toString();
 
     const headers = {};
