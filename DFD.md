@@ -1,32 +1,44 @@
-# Data Flow Diagram (DFD) — BarangayWorksJS
+# Data Flow Diagram (DFD) — Flowcharts
 
-Quick, simplified DFDs for documentation and implementation guidance. Render the Mermaid blocks with a Mermaid extension.
+Replaced the DFD diagrams with flowcharts (context-level and Level 1 process flow). Render the Mermaid blocks with a Mermaid extension.
 
-## Context (Level 0)
+## Context Flowchart
 ```mermaid
-graph LR
-  Citizen["Citizen / User"] --> System["BarangayWorks System"]
-  Admin["Admin / Staff"] --> System
-  System --> DB[("Data Stores")]
-  System --> Mail[("Email Service")]
-  System --> Logs[("Logs")]
+flowchart TD
+  User["Citizen / User"] -->|Submits forms| System["BarangayWorks System"]
+  Admin["Admin / Staff"] -->|Admin actions| System
+  System -->|Read/Write| Data["Data Stores"]
+  System -->|Send| Email["Email Service"]
+  System -->|Log| Logs["Logs"]
 ```
 
-## Level 1 (core processes)
+## Level 1 Flowchart (core processes)
 ```mermaid
-graph LR
-  Citizen -->|Submit form| Submit["Submit Form"]
-  Admin -->|Manage| Manage["Manage Data"]
-  Admin -->|Auth| Auth["Authenticate"]
+flowchart TD
+  subgraph External
+    U["Citizen"]
+    A["Admin"]
+  end
 
-  Submit --> DB["Store: Forms / Processes"]
-  Manage --> DB
-  Auth --> DB
+  U -->|Submit form| Validate["Validate"]
+  Validate -->|OK| Persist["Persist Submission"]
+  Validate -->|Error| Reject["Return Error"]
 
-  Manage -->|Notify| Mail["Email Service"]
-  Submit -->|Create log| Logs["Logs"]
+  Persist --> Notify["Trigger Notifications"]
+  Notify --> Email
+  Persist --> Log["Create Log Entry"]
+
+  A -->|Login| Auth["Authenticate"]
+  A -->|Manage data| Manage["Create/Update Process"]
+  Manage -->|Schedule| Schedule["Create Schedule"]
+  Manage --> Notify
+
+  Persist --> Data
+  Manage --> Data
+  Auth --> Data
+  Log --> Logs
 ```
 
-Notes: data stores are grouped for brevity — map to `controller/` modules when implementing.
+Notes: these flowcharts show process steps and decision points (use alongside `ERD.md` for data modeling).
 
-Created: May 27, 2026
+Created: May 28, 2026
