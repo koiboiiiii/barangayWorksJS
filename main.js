@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var btnApply = document.querySelector('.btnapply');
     var permBtnBack = document.querySelector('.btnback');
     var menuEl = document.querySelector('.menu');
-    var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    var adminApiBase = process.env.NEXT_PUBLIC_API_URL || window.BW_API_BASE || 'http://localhost:3000';
 
     var roles = [
       { label: 'Supervisor', image: './assets/supervisor.png' },
@@ -373,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!username) return;
         if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
         // Call backend to delete user
-        fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(username), {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/user/${encodeURIComponent(username)}`, {
           method: 'DELETE'
         })
         .then(function(r) { return r.json().catch(function(){ return { ok: false }; }); })
@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load users from API
     function loadUsers() {
-      fetch(adminApiBase + '/api/admin/users')
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users`)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!data.ok || !data.users) return;
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!found) return;
             var targetUsername = found.username;
             if (!targetUsername) return;
-            fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(targetUsername), { method: 'DELETE' })
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/user/${encodeURIComponent(targetUsername)}`, { method: 'DELETE' })
               .then(function(r){ return r.json().catch(function(){ return { ok: false }; }); })
               .then(function(res){
                 if (res && res.ok) {
@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
           var cu = changedUsers[index];
-          fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(cu.username) + '/role', {
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/user/${encodeURIComponent(cu.username)}/role`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role_name: cu.role })
@@ -668,7 +668,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var password = getFieldValue(fields.password);
         var displayName = getFieldValue(fields.fullname);
 
-        fetch(adminApiBase + '/api/admin/user', {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/user`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -807,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var previousText = btnSuccess.textContent;
         btnSuccess.textContent = 'Submitting...';
         try {
-          const response = await fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/processes', {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/processes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(Object.assign({}, data, { selected_date: selectedDate }))
@@ -912,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const reloadLogs = () => {
-      fetch(adminApiBase + '/api/processes')
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/processes`)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data && data.ok && Array.isArray(data.processes)) {
@@ -949,7 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const processId = logRow.dataset.processId;
         if (!processId) return;
         if (!window.confirm('Delete this log entry?')) return;
-        fetch(adminApiBase + '/api/processes/' + encodeURIComponent(processId), {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/processes/${encodeURIComponent(processId)}`, {
           method: 'DELETE'
         })
           .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
@@ -1013,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isAdminLoginPage = !!document.querySelector('.adminlogin');
   if (isAdminLoginPage) {
     // Auto-run the hierarchy seed when login page opens
-    fetch('/api/admin/init-hierarchy').catch(function() {});
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/init-hierarchy`).catch(function() {});
 
     const usernameField = document.querySelector('.tfusername');
     const passwordField = document.querySelector('.tfpassword');
@@ -1097,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setBtnLoginEnabled(false);
 
         try {
-          const response = await fetch(`${adminApiBase}/api/admin/login`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -1182,7 +1182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadUnavailableDates = async () => {
       try {
-        const response = await fetch(adminApiBase + '/api/schedules');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedules`);
         const payload = await response.json().catch(() => ({}));
         unavailableDates.clear();
         if (payload && payload.ok && Array.isArray(payload.dates)) {
@@ -1201,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveScheduleDate = async (scheduleDate, isUnavailable) => {
       try {
-        await fetch(adminApiBase + '/api/schedules', {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/schedules`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
@@ -1558,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLogout.style.cursor = 'pointer';
     btnLogout.addEventListener('click', async () => {
       try {
-        await fetch('/api/admin/logout', { method: 'POST' });
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/logout`, { method: 'POST' });
       } catch (e) { /* ignore */ }
       sessionStorage.removeItem('bw.admin.username');
       sessionStorage.removeItem('bw.admin.role');
