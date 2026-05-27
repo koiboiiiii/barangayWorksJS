@@ -1,29 +1,49 @@
-// On same origin (localhost:3000) use relative URLs.
-// On static hosting (GitHub Pages, file://) use the injected API_URI from .env.
-// Override any source with ?api_uri=https://... in the URL.
+// Determine the API base URL. On localhost:3000 use relative URLs.
+// On static hosting (GitHub Pages) use the injected API_URI from .env.
+// Override with ?api_uri=https://... in the URL.
 (function resolveApiBase() {
   try {
     const params = new URLSearchParams(window.location.search || '');
     const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
-    if (queryApi) {
-      window.BW_API_BASE = queryApi;
-      try { window.localStorage.setItem('bw.apiBase', queryApi); } catch (e) {}
-      return;
+    var api = queryApi;
+
+    if (!api) {
+      // __INJECTED_API_BASE__ is replaced at server startup
+      var injected = String('__INJECTED_API_BASE__' || '').trim();
+      if (!/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')) {
+        api = injected;
+      }
     }
 
-    // https://pampers-undrafted-urchin.ngrok-free.dev is replaced at server startup with the real API_URI from .env
-    var injectedApi = '';
-    try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
-
-    // Localhost→relative URLs; GitHub Pages/file://→use injected ngrok URL
-    const isLocalhost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
-    window.BW_API_BASE = isLocalhost ? '' : injectedApi;
-  } catch (error) {
+    window.BW_API_BASE = api;
+    if (api) {
+      try { window.localStorage.setItem('bw.apiBase', api); } catch (e) {}
+    }
+  } catch (e) {
     window.BW_API_BASE = '';
   }
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Auto-attach exportToken as Bearer header on all API calls when cross-origin
+  (function patchFetchWithToken() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, opts) {
+      opts = opts || {};
+      var token = '';
+      try { token = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (e) { token = ''; }
+      if (token && window.BW_API_BASE && String(url).indexOf(window.BW_API_BASE) === 0) {
+        opts.headers = opts.headers || {};
+        if (opts.headers instanceof Headers) {
+          if (!opts.headers.has('Authorization')) opts.headers.set('Authorization', 'Bearer ' + token);
+        } else if (!opts.headers['Authorization']) {
+          opts.headers['Authorization'] = 'Bearer ' + token;
+        }
+      }
+      return originalFetch.call(window, url, opts);
+    };
+  })();
+
   // --- Page fade transition (applies to all pages using main.js) ---
   const FADE_MS = 150;
   const fadeStyle = document.createElement('style');
