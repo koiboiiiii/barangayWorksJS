@@ -8,6 +8,23 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // Set CORS headers: echo origin and allow credentials so browser fetches with cookies work.
+    const origin = req.headers.origin || '*';
+    if (origin && origin !== '*') {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+
     // Build target URL by combining backendBase with the request path
     const target = new URL('/api/admin/users' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''), backendBase).toString();
 
@@ -26,8 +43,6 @@ module.exports = async (req, res) => {
     const contentType = fetchRes.headers.get('content-type') || 'application/json';
     res.status(fetchRes.status);
     res.setHeader('Content-Type', contentType);
-    // Allow requests from the Vercel frontend
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.send(text);
   } catch (error) {
     res.status(502).json({ ok: false, error: String(error) });
