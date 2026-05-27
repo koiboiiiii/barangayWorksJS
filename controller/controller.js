@@ -1006,12 +1006,27 @@ function createApp() {
 	const app = express();
 	const __root = path.resolve(__dirname, '..');
 
+	// Configure allowed origins from environment variable ALLOWED_ORIGINS
+	// Example: ALLOWED_ORIGINS="https://barangayworks.vercel.app,https://example.com"
+	const allowedOriginsRaw = (process.env.ALLOWED_ORIGINS || '').trim();
+	const allowedOrigins = allowedOriginsRaw ? allowedOriginsRaw.split(',').map(s => s.trim()).filter(Boolean) : null;
+
 	app.use(cors({
 		origin(origin, callback) {
+			// Allow non-browser requests with no Origin (curl, server-to-server)
 			if (!origin) return callback(null, true);
-			return callback(null, true);
+
+			// If ALLOWED_ORIGINS is not configured, allow all origins (backwards compatible)
+			if (!allowedOrigins) return callback(null, true);
+
+			// If the incoming origin is in the allowlist, allow it
+			if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+
+			// Otherwise reject CORS for that origin
+			return callback(new Error('CORS origin not allowed'));
 		},
 		credentials: true,
+		optionsSuccessStatus: 200,
 	}));
 	app.use(express.json());
 
