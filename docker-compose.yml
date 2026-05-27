@@ -1,0 +1,39 @@
+services:
+  db:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: bw_sql
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "${DB_PASSWORD}"
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    volumes:
+      - dbdata:/var/opt/mssql
+    restart: unless-stopped
+
+  app:
+    image: node:18
+    container_name: bw_app
+    env_file:
+      - .env
+    environment:
+      - DB_SERVER=db
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - PORT=${PORT}
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app:cached
+      - /usr/src/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && node -e \"require('./controller/controller').startServer()\""
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  dbdata:
