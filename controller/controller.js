@@ -1021,6 +1021,7 @@ function createApp() {
 	const app = express();
 	const __root = path.resolve(__dirname, '..');
 
+	app.set('trust proxy', 1);
 	app.use(cors({
 		origin(origin, callback) {
 			if (!origin) return callback(null, true);
@@ -1032,6 +1033,11 @@ function createApp() {
 	}));
 	app.use(express.json());
 
+	// When API_URI differs from APP_URL (e.g. ngrok vs localhost), the frontend
+	// is accessed cross-origin: the session cookie must use SameSite=None; Secure.
+	// When running purely local (same origin), use Lax; Secure=false.
+	const usesCrossOrigin = API_URI !== APP_URL;
+
 	// Session middleware
 	app.use(session({
 		secret: getSessionSecret(),
@@ -1039,8 +1045,8 @@ function createApp() {
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			sameSite: 'lax',
-			secure: false,
+			sameSite: usesCrossOrigin ? 'none' : 'lax',
+			secure: usesCrossOrigin,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
 	}));
