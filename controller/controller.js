@@ -1065,10 +1065,25 @@ function createApp() {
 	// Serve static files from project root
 
 	// Serve a small runtime config script so frontend can read the API base URL
+	// The script prefers the page's origin when served from localhost (so the
+	// browser will make same-origin requests during local development). When the
+	// page is loaded from a remote origin (e.g. via ngrok), it will use the
+	// configured NEXT_PUBLIC_API_URL or APP_URL.
 	app.get('/bw-config.js', (_req, res) => {
-		// Prefer NEXT_PUBLIC_API_URL when provided (useful when exposing the API via ngrok or a proxy)
-		const url = process.env.NEXT_PUBLIC_API_URL || APP_URL;
-		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
+		const envUrl = process.env.NEXT_PUBLIC_API_URL || APP_URL;
+		const script = `(function(){
+			try {
+				var hostname = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+				if (/localhost|127\\.0\\.0\\.1/.test(hostname)) {
+					window.BW_API_BASE = window.location.origin;
+				} else {
+					window.BW_API_BASE = '${envUrl}';
+				}
+			} catch (e) {
+				window.BW_API_BASE = '${envUrl}';
+			}
+		})();`;
+		res.type('application/javascript').send(script);
 	});
 
 	app.use(express.static(__root, {
