@@ -1038,15 +1038,16 @@ function createApp() {
 	// When running purely local (same origin), use Lax; Secure=false.
 	const usesCrossOrigin = API_URI !== APP_URL;
 
-	// Session middleware
+	// Session middleware — cookies work for same-origin (localhost).
+	// Cross-origin (GitHub Pages → ngrok) uses Bearer token via fetch() patch.
 	app.use(session({
 		secret: getSessionSecret(),
 		resave: false,
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			sameSite: usesCrossOrigin ? 'none' : 'lax',
-			secure: usesCrossOrigin,
+			sameSite: 'lax',
+			secure: false,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
 	}));

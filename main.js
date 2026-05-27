@@ -8,8 +8,8 @@
     var api = queryApi;
 
     if (!api) {
-      // __INJECTED_API_BASE__ is replaced at server startup
-      var injected = String('__INJECTED_API_BASE__' || '').trim();
+      // https://pampers-undrafted-urchin.ngrok-free.dev is replaced at server startup
+      var injected = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim();
       if (!/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')) {
         api = injected;
       }
