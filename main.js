@@ -1,75 +1,4 @@
-<<<<<<< HEAD
-// Determine the API base URL. On localhost:3000 use relative URLs.
-// On static hosting (GitHub Pages) use the injected API_URI from .env.
-// Override with ?api_uri=https://... in the URL.
-(function resolveApiBase() {
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
-    var api = queryApi;
-
-    if (!api) {
-      // https://pampers-undrafted-urchin.ngrok-free.dev is replaced at server startup
-      var injected = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim();
-      if (!/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')) {
-        api = injected;
-      }
-    }
-
-    window.BW_API_BASE = api;
-    if (api) {
-      try { window.localStorage.setItem('bw.apiBase', api); } catch (e) {}
-    }
-  } catch (e) {
-    window.BW_API_BASE = '';
-=======
-// --- Auto server start check - redirect to APP_URL if provided (configured via .env) ---
-(function autoRedirectToServer() {
-  if (window.location.protocol === 'file:') {
-    // Check if the server is already running on the configured APP_URL
-    const apiBase = (window.BW_API_BASE || '').replace(/\/$/, '');
-    fetch(apiBase + '/', { method: 'HEAD', mode: 'no-cors' })
-      .then(function() {
-        // Server is running - redirect to APP_URL
-        window.location.replace(apiBase + window.location.pathname);
-      })
-      .catch(function() {
-        // Server is not running - try to spawn it via fetch to a startup endpoint
-        fetch((window.BW_API_BASE || '') + '/api/start-server', { method: 'POST', mode: 'no-cors' })
-          .catch(function() {
-            // Can't auto-start, show message on the page
-            console.log('Backend server not running. Please open index.html via ' + (window.BW_API_BASE || ''));
-          });
-        // Retry redirect after 3 seconds (in case server was just started)
-        window.setTimeout(function() {
-          window.location.replace((window.BW_API_BASE || '') + window.location.pathname);
-        }, 3000);
-      });
-    return;
->>>>>>> d950c31 (	modified:   admindashboard.html)
-  }
-})();
-
 document.addEventListener('DOMContentLoaded', () => {
-  // Auto-attach exportToken as Bearer header on all API calls when cross-origin
-  (function patchFetchWithToken() {
-    const originalFetch = window.fetch;
-    window.fetch = function(url, opts) {
-      opts = opts || {};
-      var token = '';
-      try { token = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (e) { token = ''; }
-      if (token && window.BW_API_BASE && String(url).indexOf(window.BW_API_BASE) === 0) {
-        opts.headers = opts.headers || {};
-        if (opts.headers instanceof Headers) {
-          if (!opts.headers.has('Authorization')) opts.headers.set('Authorization', 'Bearer ' + token);
-        } else if (!opts.headers['Authorization']) {
-          opts.headers['Authorization'] = 'Bearer ' + token;
-        }
-      }
-      return originalFetch.call(window, url, opts);
-    };
-  })();
-
   // --- Page fade transition (applies to all pages using main.js) ---
   const FADE_MS = 150;
   const fadeStyle = document.createElement('style');
@@ -95,53 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setTimeout(() => {
       window.location.href = url;
     }, FADE_MS);
-  }
-
-  const currentPath = String(window.location.pathname || '').toLowerCase();
-  const isAdminOnlyPage = /\/(admindashboard|permissions|newadmin|logs)\.html$/.test(currentPath);
-  if (isAdminOnlyPage && !/\/adminlogin\.html$/.test(currentPath)) {
-    let hasAdminHint = false;
-    let exportToken = '';
-    try {
-      exportToken = sessionStorage.getItem('bw.admin.exportToken') || '';
-      hasAdminHint = !!sessionStorage.getItem('bw.admin.username') || !!exportToken;
-    } catch (error) {
-      hasAdminHint = false;
-    }
-
-    if (!hasAdminHint) {
-      window.location.replace('./adminlogin.html');
-      return;
-    }
-
-    if (exportToken) {
-      document.body.dataset.adminAuthMode = 'token';
-    }
-
-    fetch((window.BW_API_BASE || '') + '/api/admin/session', { credentials: 'include' })
-      .then(function(response) { return response.json(); })
-      .then(function(payload) {
-        if (!payload || !payload.ok) {
-          // Keep the page open when the session cookie is unavailable; the
-          // server already gated access before serving this page, and the
-          // token fallback is what keeps local file:// launches stable.
-          return;
-        }
-      })
-      .catch(function() {
-        // Keep the local session hint as the fallback for file:// launches.
-      });
-  }
-
-  // If this is the public index page (root or /index.html), trigger the
-  // initialization endpoint so the database and admin seed are created when
-  // the user opens the first page. This is non-blocking and failures are
-  // ignored (server or DB may be offline during a file:// launch).
-  const isIndexPage = /^\/(index\.html)?$/.test(currentPath);
-  if (isIndexPage) {
-    fetch((window.BW_API_BASE || '') + '/api/admin/init-hierarchy', { method: 'POST' })
-      .then(() => { console.log('[init] /api/admin/init-hierarchy invoked (POST)'); })
-      .catch(() => { /* ignore init errors for offline or unreachable servers */ });
   }
 
   // --- Navigation map for buttons that go to form pages ---
@@ -184,218 +66,22 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.style.touchAction = '';
     };
     if (isUpdatePage) lockScroll();
-      const updateSearchButtonState = () => {
-        const emailField = document.querySelector('.text-field .tfusedemail');
-        const firstNameField = document.querySelector('.text-field3 .tfusedemail');
-        const lastNameField = document.querySelector('.text-field5 .tfusedemail');
-        const email = (emailField?.textContent || '').trim();
-        const firstName = (firstNameField?.textContent || '').trim();
-        const lastName = (lastNameField?.textContent || '').trim();
-        const enabled = email.length > 0 && firstName.length > 0 && lastName.length > 0;
-      btnSearch.style.opacity = enabled ? '1' : '0.45';
-      btnSearch.style.cursor = enabled ? 'pointer' : 'not-allowed';
-      btnSearch.style.pointerEvents = enabled ? 'auto' : 'none';
-      btnSearch.dataset.enabled = enabled ? '1' : '0';
-    };
-    const adminApiBase = window.BW_API_BASE || '';
-
-    const formatSelectedDate = (value) => {
-      if (!value) return '';
-      return String(value).slice(0, 10);
-    };
-
-    const getTodayIsoDate = () => {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      return year + '-' + month + '-' + day;
-    };
-
-    const getStatusIconSrc = (selectedDate) => {
-      const dateValue = formatSelectedDate(selectedDate);
-      if (dateValue && dateValue < getTodayIsoDate()) {
-        return './assets/done.png';
-      }
-      return './assets/ongoing.png';
-    };
-
-    const formatSerialNumber = (row) => {
-      if (row.serial_number) return String(row.serial_number);
-      const cityPart = String(row.city || '').trim().slice(0, 3).toUpperCase();
-      const datePart = formatSelectedDate(row.selected_date).replace(/-/g, '');
-      const idPart = row.id ? String(row.id) : '';
-      if (!cityPart || !datePart || !idPart) return '';
-      return cityPart + datePart + idPart;
-    };
-
-    const menuEl = document.querySelector('.update .menu');
-    const btnApplyUpdate = document.querySelector('.rectangle-group .btnapply');
-    var pendingDeleteIds = new Set();
-
-    var updateApplyButtonState = function() {
-      if (!btnApplyUpdate) return;
-      var hasPending = pendingDeleteIds.size > 0;
-      btnApplyUpdate.style.opacity = hasPending ? '1' : '0.45';
-      btnApplyUpdate.style.cursor = hasPending ? 'pointer' : 'not-allowed';
-      btnApplyUpdate.style.pointerEvents = hasPending ? 'auto' : 'none';
-    };
-
-    var addPendingDelete = function(processId) {
-      if (!processId) return;
-      pendingDeleteIds.add(String(processId));
-      updateApplyButtonState();
-    };
-
-    var removePendingDelete = function(processId) {
-      if (!processId) return;
-      pendingDeleteIds.delete(String(processId));
-      updateApplyButtonState();
-    };
-
-    const renderSearchResults = (processes) => {
-      if (!menuEl) return;
-      menuEl.innerHTML = '';
-      pendingDeleteIds.clear();
-      updateApplyButtonState();
-
-      if (!processes || !processes.length) {
-        const empty = document.createElement('div');
-        empty.className = 'done';
-        empty.style.display = 'flex';
-        empty.style.alignItems = 'center';
-        empty.style.justifyContent = 'center';
-        empty.textContent = 'No results found.';
-        menuEl.appendChild(empty);
-        return;
-      }
-
-      // Allow menu to scroll if many results
-      menuEl.style.overflowY = 'auto';
-      menuEl.style.flexDirection = 'column';
-
-      processes.forEach(function(row, index) {
-        var processId = row.id ? String(row.id) : '';
-        var logRow = document.createElement('div');
-        logRow.className = 'done-row';
-        logRow.dataset.processId = processId;
-        logRow.style.position = 'relative';
-        logRow.style.width = '100%';
-        logRow.style.height = '4.58vw';
-        logRow.style.overflow = 'hidden';
-        logRow.style.flexShrink = '0';
-
-        var serviceLabel = document.createElement('div');
-        serviceLabel.className = 'lblappointment';
-        serviceLabel.textContent = row.service || '';
-
-        var dateLabel = document.createElement('div');
-        dateLabel.className = 'lbldate';
-        dateLabel.textContent = formatSelectedDate(row.selected_date);
-
-        var serialLabel = document.createElement('div');
-        serialLabel.className = 'lblserial';
-        serialLabel.textContent = formatSerialNumber(row);
-
-        var isPastDate = row.selected_date && formatSelectedDate(row.selected_date) < getTodayIsoDate();
-
-        var statusIcon = document.createElement('img');
-        statusIcon.className = 'status-icon';
-        statusIcon.src = getStatusIconSrc(row.selected_date);
-        statusIcon.alt = isPastDate ? 'Done' : 'Ongoing';
-
-        logRow.appendChild(serviceLabel);
-        logRow.appendChild(dateLabel);
-        logRow.appendChild(serialLabel);
-        logRow.appendChild(statusIcon);
-
-        if (isPastDate) {
-          var trashIcon = document.createElement('img');
-          trashIcon.className = 'btntrash-icon';
-          trashIcon.src = './assets/trash.png';
-          trashIcon.alt = '';
-          trashIcon.style.cursor = 'pointer';
-          (function(pid, rowEl) {
-            trashIcon.addEventListener('click', function() {
-              if (pid) {
-                addPendingDelete(pid);
-              }
-              if (rowEl.parentNode) {
-                rowEl.parentNode.removeChild(rowEl);
-              }
-              if (pendingDeleteIds.size === 0) {
-                updateApplyButtonState();
-              }
-            });
-          })(processId, logRow);
-          logRow.appendChild(trashIcon);
-        }
-
-        menuEl.appendChild(logRow);
-      });
-    };
-
-    // Wire btnapply to actually delete all pending items from DB
-    if (btnApplyUpdate) {
-      btnApplyUpdate.addEventListener('click', function() {
-        if (pendingDeleteIds.size === 0) return;
-        var ids = Array.from(pendingDeleteIds);
-        var adminApiBase = window.BW_API_BASE || '';
-        var deleteNext = function(index) {
-          if (index >= ids.length) {
-            pendingDeleteIds.clear();
-            updateApplyButtonState();
-            return;
-          }
-          var pid = ids[index];
-          fetch(adminApiBase + '/api/processes/' + encodeURIComponent(pid), { method: 'DELETE' })
-            .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
-            .then(function(data) {
-              if (!data.ok) {
-                console.warn('Failed to delete process', pid, data && data.error);
-              }
-              deleteNext(index + 1);
-            })
-            .catch(function() {
-              console.warn('Could not reach server to delete process', pid);
-              deleteNext(index + 1);
-            });
-        };
-        if (ids.length > 0) deleteNext(0);
-      });
-    }
-
-    btnSearch.addEventListener('click', () => {
-      if (btnSearch.dataset.enabled !== '1') return;
-      unlockScroll();
-
+    const updateSearchButtonState = () => {
       const emailField = document.querySelector('.text-field .tfusedemail');
       const firstNameField = document.querySelector('.text-field3 .tfusedemail');
       const lastNameField = document.querySelector('.text-field5 .tfusedemail');
       const email = (emailField?.textContent || '').trim();
       const firstName = (firstNameField?.textContent || '').trim();
       const lastName = (lastNameField?.textContent || '').trim();
-
-      const searchUrl = adminApiBase + '/api/processes/search?email=' + encodeURIComponent(email) + '&first_name=' + encodeURIComponent(firstName) + '&last_name=' + encodeURIComponent(lastName);
-      console.log('[search] fetching:', searchUrl);
-      fetch(searchUrl)
-        .then(function(r) {
-          console.log('[search] response status:', r.status);
-          return r.json();
-        })
-        .then(function(data) {
-          console.log('[search] response data:', data);
-          if (data && data.ok && Array.isArray(data.processes)) {
-            renderSearchResults(data.processes);
-          } else {
-            renderSearchResults([]);
-          }
-        })
-        .catch(function(err) {
-          console.error('[search] fetch error:', err);
-          renderSearchResults([]);
-        });
-
+      const enabled = email.length > 0 || (firstName.length > 0 && lastName.length > 0);
+      btnSearch.style.opacity = enabled ? '1' : '0.45';
+      btnSearch.style.cursor = enabled ? 'pointer' : 'not-allowed';
+      btnSearch.style.pointerEvents = enabled ? 'auto' : 'none';
+      btnSearch.dataset.enabled = enabled ? '1' : '0';
+    };
+    btnSearch.addEventListener('click', () => {
+      if (btnSearch.dataset.enabled !== '1') return;
+      unlockScroll();
       const target = document.querySelector('.rectangle-parent');
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -566,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var btnApply = document.querySelector('.btnapply');
     var permBtnBack = document.querySelector('.btnback');
     var menuEl = document.querySelector('.menu');
-    var adminApiBase = window.BW_API_BASE || '';
+    var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
 
     var roles = [
       { label: 'Supervisor', image: './assets/supervisor.png' },
@@ -899,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
       var container = document.querySelector('.addadmin');
       if (!btnRegister || !container) return;
 
-      var adminApiBase = window.BW_API_BASE || '';
+      var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
 
       // Map field labels to their nearest tf elements
       function getFieldByLabelContaining(text) {
@@ -1121,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var previousText = btnSuccess.textContent;
         btnSuccess.textContent = 'Submitting...';
         try {
-          const response = await fetch((window.BW_API_BASE || '') + '/api/processes', {
+          const response = await fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/processes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(Object.assign({}, data, { selected_date: selectedDate }))
@@ -1193,47 +879,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isLogsPage = !!document.querySelector('.logs');
   if (isLogsPage) {
     const menuEl = document.querySelector('.logs .menu');
-    const adminApiBase = window.BW_API_BASE || '';
-    const serialSearchField = document.querySelector('.logs .tfserial');
-
-    const logsSearchStyle = document.createElement('style');
-    logsSearchStyle.textContent = `
-      .logs .done.cw-log-matched {
-        outline: 0.2vw solid rgba(29, 136, 217, 0.35);
-        background: rgba(29, 136, 217, 0.08);
-      }
-      .logs .done.cw-log-highlighted {
-        outline: 0.24vw solid rgba(29, 136, 217, 0.9);
-        background: rgba(29, 136, 217, 0.16);
-      }
-    `;
-    document.head.appendChild(logsSearchStyle);
-
-    const getLogRows = () => Array.from(document.querySelectorAll('.logs .menu .done-row, .logs .menu .done'));
-
-    const syncLogSerialSearch = () => {
-      const query = (serialSearchField && serialSearchField.value ? serialSearchField.value : serialSearchField && serialSearchField.textContent ? serialSearchField.textContent : '').trim().toLowerCase();
-      const rows = getLogRows();
-      let firstMatch = null;
-
-      rows.forEach((row) => {
-        row.classList.remove('cw-log-matched', 'cw-log-highlighted');
-
-        const serialLabel = row.querySelector('.lblserial');
-        const serialValue = (serialLabel && serialLabel.textContent ? serialLabel.textContent : '').trim().toLowerCase();
-        const matches = !query || serialValue.includes(query);
-
-        if (matches && query) {
-          row.classList.add('cw-log-matched');
-          if (!firstMatch) firstMatch = row;
-        }
-      });
-
-      if (firstMatch) {
-        firstMatch.classList.add('cw-log-highlighted');
-        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    };
+    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
 
     const formatSelectedDate = (value) => {
       if (!value) return '';
@@ -1351,19 +997,9 @@ document.addEventListener('DOMContentLoaded', () => {
       rows.forEach((row, index) => {
         menuEl.appendChild(buildLogRow(row, index));
       });
-
-      syncLogSerialSearch();
     };
 
     reloadLogs();
-
-    if (serialSearchField) {
-      serialSearchField.style.cursor = 'text';
-      serialSearchField.addEventListener('input', syncLogSerialSearch);
-      serialSearchField.addEventListener('keyup', syncLogSerialSearch);
-      serialSearchField.addEventListener('paste', () => { window.setTimeout(syncLogSerialSearch, 0); });
-      serialSearchField.addEventListener('blur', syncLogSerialSearch);
-    }
 
     const btnApplyLogs = document.querySelector('.btnapply');
     if (btnApplyLogs) {
@@ -1377,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isAdminLoginPage = !!document.querySelector('.adminlogin');
   if (isAdminLoginPage) {
     // Auto-run the hierarchy seed when login page opens
-    fetch('/api/admin/init-hierarchy', { method: 'POST' }).catch(function() {});
+    fetch('/api/admin/init-hierarchy').catch(function() {});
 
     const usernameField = document.querySelector('.tfusername');
     const passwordField = document.querySelector('.tfpassword');
@@ -1421,7 +1057,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEraseButton(erasePassword, passwordField);
 
     const btnLoginAdmin = document.querySelector('.btnlogin');
-    const adminApiBase = window.BW_API_BASE || '';
+    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
     const setBtnLoginEnabled = (enabled) => {
       if (!btnLoginAdmin) return;
       if (enabled) {
@@ -1463,7 +1099,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const response = await fetch(`${adminApiBase}/api/admin/login`, {
             method: 'POST',
-            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
           });
@@ -1479,12 +1114,9 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('bw.admin.username', payload.admin && payload.admin.username ? payload.admin.username : username);
             sessionStorage.setItem('bw.admin.role', payload.admin && payload.admin.role ? payload.admin.role : '');
             sessionStorage.setItem('bw.admin.permissions', JSON.stringify(payload.admin && payload.admin.permissions ? payload.admin.permissions : {}));
-            if (payload.exportToken) {
-              sessionStorage.setItem('bw.admin.exportToken', payload.exportToken);
-            }
           } catch (e) { /* ignore */ }
 
-          window.location.replace('./admindashboard.html' + (payload.exportToken ? '?auth=' + encodeURIComponent(payload.exportToken) : ''));
+          window.location.replace('./admindashboard.html');
         } catch (error) {
           window.alert('Cannot reach admin login server. Ensure backend API is running.');
         } finally {
@@ -1522,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Calendar implementation ---
   const calendarRoot = document.querySelector('.calendar');
   if (calendarRoot) {
-    const adminApiBase = window.BW_API_BASE || '';
+    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
     const monthDisplay = calendarRoot.querySelector('.calendar-month-field .september');
     const yearDisplay = calendarRoot.querySelector('.calendar-year-field .september');
     const prevIconBtn = calendarRoot.querySelector('.block .icon-button');
@@ -1975,21 +1607,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   }
 
-  // --- update page btnback: route to index.html ---
-  const isUpdatePage = !!document.querySelector('.update');
-  if (isUpdatePage) {
-    const updateBtnBack = document.querySelector('.btnback');
-    if (updateBtnBack) {
-      updateBtnBack.style.cursor = 'pointer';
-      updateBtnBack.addEventListener('click', () => { navigateWithFade('./index.html'); });
-    }
-  }
-
-  // --- btnback (global) - skip update page's btnback since it has its own handler ---
+  // --- btnback (global) ---
   document.querySelectorAll('.btnback').forEach((btn) => {
     try {
-      if (btn.closest('.info')) return;
-      if (btn.closest('.update')) return;
       btn.style.cursor = 'pointer';
       btn.addEventListener('click', () => { navigateWithFade('./admindashboard.html'); });
     } catch (e) { /* ignore */ }
@@ -2035,37 +1655,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnExport) {
     btnExport.style.cursor = 'pointer';
     btnExport.addEventListener('click', checkPermOrToast('btnexport', function(e) {
-      const adminApiBase = window.BW_API_BASE || '';
-      const exportUrl = adminApiBase + '/api/admin/export-archive';
-      let exportToken = '';
-      try { exportToken = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (err) { exportToken = ''; }
-      fetch(exportUrl, {
-        credentials: 'include',
-        headers: exportToken ? { 'Authorization': 'Bearer ' + exportToken } : {}
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const payload = await response.json().catch(() => ({}));
-            throw new Error(payload.error || ('Export failed with status ' + response.status));
-          }
-
-          const blob = await response.blob();
-          const disposition = response.headers.get('content-disposition') || '';
-          const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
-          const filename = filenameMatch ? filenameMatch[1] : 'barangayArchive.zip';
-          const objectUrl = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = objectUrl;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-          window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1500);
-        })
-        .catch((error) => {
-          console.error('[btnexport] export failed:', error);
-          window.alert(error.message || 'Export failed');
-        });
+      // Export functionality placeholder
     }));
   }
 
@@ -2074,15 +1664,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnImport) {
     btnImport.style.cursor = 'pointer';
 
-    const zipInput = document.createElement('input');
-    zipInput.type = 'file';
-    zipInput.accept = '.zip,application/zip';
-    zipInput.style.display = 'none';
-    document.body.appendChild(zipInput);
+    const csvInput = document.createElement('input');
+    csvInput.type = 'file';
+    csvInput.accept = '.csv,text/csv';
+    csvInput.style.display = 'none';
+    document.body.appendChild(csvInput);
 
     const uploadToast = document.createElement('div');
     uploadToast.className = 'cw-upload-toast';
-    uploadToast.textContent = 'Import Success!';
+    uploadToast.textContent = 'Upload Success!';
     document.body.appendChild(uploadToast);
     let toastHideTimer = null;
     const showUploadToast = () => {
@@ -2094,61 +1684,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 1000);
     };
 
-    zipInput.addEventListener('change', () => {
-      if (!zipInput.files || !zipInput.files.length) return;
-      const file = zipInput.files[0];
-      const isZip = /\.zip$/i.test(file.name) || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
-      if (!isZip) {
-        zipInput.value = '';
-        window.alert('Please upload a .zip file.');
-        return;
-      }
-
-      const confirmImport = window.confirm(
-        'Importing this archive will overwrite the current database with the contents of the zip file. Do you want to continue?'
-      );
-      if (!confirmImport) {
-        zipInput.value = '';
-        return;
-      }
-
-      const adminApiBase = window.BW_API_BASE || '';
-      const importUrl = adminApiBase + '/api/admin/import-archive';
-      let exportToken = '';
-      try { exportToken = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (err) { exportToken = ''; }
-
-      fetch(importUrl, {
-        method: 'POST',
-        credentials: 'include',
-        headers: Object.assign(
-          {
-            'Content-Type': 'application/zip',
-            'X-File-Name': file.name
-          },
-          exportToken ? { 'Authorization': 'Bearer ' + exportToken } : {}
-        ),
-        body: file
-      })
-        .then(async (response) => {
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(payload.error || ('Import failed with status ' + response.status));
-          }
-          showUploadToast();
-          window.setTimeout(() => window.location.reload(), 700);
-        })
-        .catch((error) => {
-          console.error('[btnimport] import failed:', error);
-          window.alert(error.message || 'Import failed');
-        })
-        .finally(() => {
-          zipInput.value = '';
-        });
+    csvInput.addEventListener('change', () => {
+      if (!csvInput.files || !csvInput.files.length) return;
+      const file = csvInput.files[0];
+      const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
+      if (!isCsv) { csvInput.value = ''; return; }
+      showUploadToast();
     });
 
     btnImport.addEventListener('click', checkPermOrToast('btnimport', function(e) {
-      zipInput.value = '';
-      zipInput.click();
+      csvInput.value = '';
+      csvInput.click();
     }));
   }
 
