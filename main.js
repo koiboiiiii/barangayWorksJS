@@ -18,8 +18,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('cw-fade-ready');
   });
 
-  // Safe API base resolver for browser (avoid ReferenceError when `process` is undefined)
-  const API_BASE = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) || window.BW_API_BASE || 'http://localhost:3000';
+  // Resolve API base URL in the browser. Prefer explicit runtime values that can be injected
+  // into the page (window.BW_API_BASE or a meta tag). Fall back to process.env when available
+  // (build-time), then to the page origin, and lastly localhost.
+  const API_BASE = (function(){
+    try {
+      if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE;
+      var meta = document.querySelector('meta[name="next-public-api-url"]');
+      if (meta && meta.content) return meta.content;
+      if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+      if (typeof location !== 'undefined' && location.origin) return location.origin;
+    } catch (e) {}
+    return 'http://localhost:3000';
+  })();
 
   function navigateWithFade(url) {
     if (!url) return;
