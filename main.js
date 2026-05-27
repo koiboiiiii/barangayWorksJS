@@ -504,7 +504,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         var roleIcon = document.createElement('img');
         roleIcon.className = 'icon2';
-        roleIcon.src = roleImageMap[u.role_name] || './assets/supervisor.png';
+        // Prefer any in-progress selection (pendingChanges) so the UI doesn't revert
+        // to the server-supplied role while the admin is selecting a new one.
+        var effectiveRole = (pendingChanges[u.username] && pendingChanges[u.username].selectedRole) || u.role_name;
+        roleIcon.src = roleImageMap[effectiveRole] || './assets/supervisor.png';
         roleIcon.alt = u.role_name + ' role';
 
         var nameLabel = document.createElement('div');
@@ -512,7 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
         nameLabel.dataset.displayname = u.display_name || '';
         nameLabel.dataset.barangayid = u.barangay_id || '';
         var barangaySuffix = u.barangay_id ? ' — ' + u.barangay_id : '';
-        nameLabel.textContent = (u.display_name || '') + ' (' + (u.role_name || '') + ')' + barangaySuffix;
+        var displayRole = (pendingChanges[u.username] && pendingChanges[u.username].selectedRole) || u.role_name || '';
+        nameLabel.textContent = (u.display_name || '') + ' (' + displayRole + ')' + barangaySuffix;
 
         row.appendChild(dropdownIcon);
         row.appendChild(roleIcon);
