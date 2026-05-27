@@ -1,22 +1,23 @@
-// --- Auto server start check - redirect to localhost if needed ---
+// --- Auto server start check - redirect to APP_URL if provided (configured via .env) ---
 (function autoRedirectToServer() {
   if (window.location.protocol === 'file:') {
-    // Check if the server is already running on localhost:3000
-    fetch('http://localhost:3000/', { method: 'HEAD', mode: 'no-cors' })
+    // Check if the server is already running on the configured APP_URL
+    const apiBase = (window.BW_API_BASE || '').replace(/\/$/, '');
+    fetch(apiBase + '/', { method: 'HEAD', mode: 'no-cors' })
       .then(function() {
-        // Server is running - redirect to localhost
-        window.location.replace('http://localhost:3000' + window.location.pathname);
+        // Server is running - redirect to APP_URL
+        window.location.replace(apiBase + window.location.pathname);
       })
       .catch(function() {
         // Server is not running - try to spawn it via fetch to a startup endpoint
-        fetch('http://localhost:3001/api/start-server', { method: 'POST', mode: 'no-cors' })
+        fetch((window.BW_API_BASE || '') + '/api/start-server', { method: 'POST', mode: 'no-cors' })
           .catch(function() {
             // Can't auto-start, show message on the page
-            console.log('Backend server not running. Please open index.html via http://localhost:3000');
+            console.log('Backend server not running. Please open index.html via ' + (window.BW_API_BASE || ''));
           });
         // Retry redirect after 3 seconds (in case server was just started)
         window.setTimeout(function() {
-          window.location.replace('http://localhost:3000' + window.location.pathname);
+          window.location.replace((window.BW_API_BASE || '') + window.location.pathname);
         }, 3000);
       });
     return;
@@ -72,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.dataset.adminAuthMode = 'token';
     }
 
-    fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/admin/session', { credentials: 'include' })
+    fetch((window.BW_API_BASE || '') + '/api/admin/session', { credentials: 'include' })
       .then(function(response) { return response.json(); })
       .then(function(payload) {
         if (!payload || !payload.ok) {
@@ -85,6 +86,17 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(function() {
         // Keep the local session hint as the fallback for file:// launches.
       });
+  }
+
+  // If this is the public index page (root or /index.html), trigger the
+  // initialization endpoint so the database and admin seed are created when
+  // the user opens the first page. This is non-blocking and failures are
+  // ignored (server or DB may be offline during a file:// launch).
+  const isIndexPage = /^\/(index\.html)?$/.test(currentPath);
+  if (isIndexPage) {
+    fetch((window.BW_API_BASE || '') + '/api/admin/init-hierarchy', { method: 'POST' })
+      .then(() => { console.log('[init] /api/admin/init-hierarchy invoked (POST)'); })
+      .catch(() => { /* ignore init errors for offline or unreachable servers */ });
   }
 
   // --- Navigation map for buttons that go to form pages ---
@@ -140,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btnSearch.style.pointerEvents = enabled ? 'auto' : 'none';
       btnSearch.dataset.enabled = enabled ? '1' : '0';
     };
-    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    const adminApiBase = window.BW_API_BASE || '';
 
     const formatSelectedDate = (value) => {
       if (!value) return '';
@@ -283,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btnApplyUpdate.addEventListener('click', function() {
         if (pendingDeleteIds.size === 0) return;
         var ids = Array.from(pendingDeleteIds);
-        var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+        var adminApiBase = window.BW_API_BASE || '';
         var deleteNext = function(index) {
           if (index >= ids.length) {
             pendingDeleteIds.clear();
@@ -509,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var btnApply = document.querySelector('.btnapply');
     var permBtnBack = document.querySelector('.btnback');
     var menuEl = document.querySelector('.menu');
-    var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    var adminApiBase = window.BW_API_BASE || '';
 
     var roles = [
       { label: 'Supervisor', image: './assets/supervisor.png' },
@@ -842,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
       var container = document.querySelector('.addadmin');
       if (!btnRegister || !container) return;
 
-      var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+      var adminApiBase = window.BW_API_BASE || '';
 
       // Map field labels to their nearest tf elements
       function getFieldByLabelContaining(text) {
@@ -1064,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
         var previousText = btnSuccess.textContent;
         btnSuccess.textContent = 'Submitting...';
         try {
-          const response = await fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/processes', {
+          const response = await fetch((window.BW_API_BASE || '') + '/api/processes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(Object.assign({}, data, { selected_date: selectedDate }))
@@ -1136,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isLogsPage = !!document.querySelector('.logs');
   if (isLogsPage) {
     const menuEl = document.querySelector('.logs .menu');
-    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    const adminApiBase = window.BW_API_BASE || '';
     const serialSearchField = document.querySelector('.logs .tfserial');
 
     const logsSearchStyle = document.createElement('style');
@@ -1320,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isAdminLoginPage = !!document.querySelector('.adminlogin');
   if (isAdminLoginPage) {
     // Auto-run the hierarchy seed when login page opens
-    fetch('/api/admin/init-hierarchy').catch(function() {});
+    fetch('/api/admin/init-hierarchy', { method: 'POST' }).catch(function() {});
 
     const usernameField = document.querySelector('.tfusername');
     const passwordField = document.querySelector('.tfpassword');
@@ -1364,7 +1376,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEraseButton(erasePassword, passwordField);
 
     const btnLoginAdmin = document.querySelector('.btnlogin');
-    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    const adminApiBase = window.BW_API_BASE || '';
     const setBtnLoginEnabled = (enabled) => {
       if (!btnLoginAdmin) return;
       if (enabled) {
@@ -1465,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Calendar implementation ---
   const calendarRoot = document.querySelector('.calendar');
   if (calendarRoot) {
-    const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    const adminApiBase = window.BW_API_BASE || '';
     const monthDisplay = calendarRoot.querySelector('.calendar-month-field .september');
     const yearDisplay = calendarRoot.querySelector('.calendar-year-field .september');
     const prevIconBtn = calendarRoot.querySelector('.block .icon-button');
@@ -1978,7 +1990,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnExport) {
     btnExport.style.cursor = 'pointer';
     btnExport.addEventListener('click', checkPermOrToast('btnexport', function(e) {
-      const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+      const adminApiBase = window.BW_API_BASE || '';
       const exportUrl = adminApiBase + '/api/admin/export-archive';
       let exportToken = '';
       try { exportToken = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (err) { exportToken = ''; }
@@ -2055,7 +2067,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+      const adminApiBase = window.BW_API_BASE || '';
       const importUrl = adminApiBase + '/api/admin/import-archive';
       let exportToken = '';
       try { exportToken = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (err) { exportToken = ''; }

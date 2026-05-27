@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 /**
  * Send a confirmation email via Gmail SMTP.

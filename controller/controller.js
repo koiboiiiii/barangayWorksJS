@@ -3,13 +3,17 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const sql = require('mssql');
-const { ZipArchive } = require('archiver');
+const dotenv = require('dotenv');
 const AdmZip = require('adm-zip');
 const { parse: parseCsv } = require('csv-parse/sync');
 const { sendConfirmationEmail } = require('./mailer');
 
-const BUILTIN_ADMIN_USERNAME = 'admin';
-const BUILTIN_ADMIN_PASSWORD = 'b4r4ng4y!';
+dotenv.config();
+
+const APP_URL = process.env.APP_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
+
+const BUILTIN_ADMIN_USERNAME = process.env.BUILTIN_ADMIN_USERNAME || '';
+const BUILTIN_ADMIN_PASSWORD = process.env.BUILTIN_ADMIN_PASSWORD || '';
 
 const DASHBOARD_BUTTON_KEYS = [
 	'btnmanageaccess',
@@ -25,7 +29,7 @@ const DASHBOARD_BUTTON_KEYS = [
 let sharedPool;
 
 function getSessionSecret() {
-	return process.env.SESSION_SECRET || 'b4r4ng4y-s3cr3t-k3y';
+	return process.env.SESSION_SECRET || '';
 }
 
 function createAdminExportToken(admin) {
@@ -71,7 +75,7 @@ function verifyAdminExportToken(token) {
 function bootstrapAdminSessionFromToken(req) {
 	let token = '';
 	try {
-		const requestUrl = new URL(req.originalUrl || req.url || '', 'http://localhost');
+		const requestUrl = new URL(req.originalUrl || req.url || '', APP_URL);
 		token = requestUrl.searchParams.get('auth') || '';
 	} catch (error) {
 		token = req && req.query && req.query.auth ? String(req.query.auth) : '';
@@ -108,11 +112,11 @@ function getDbConfig() {
 	const dbPort = Number(process.env.DB_PORT || 1433);
 
 	return {
-		server: process.env.DB_SERVER || 'localhost',
+		server: process.env.DB_SERVER || '127.0.0.1',
 		port: Number.isNaN(dbPort) ? 1433 : dbPort,
-		user: process.env.DB_USER || 'sa',
-		password: process.env.DB_PASSWORD || 'Ch33s3burg3r!',
-		database: process.env.DB_NAME || 'barangayworks',
+		user: process.env.DB_USER || '',
+		password: process.env.DB_PASSWORD || '',
+		database: process.env.DB_NAME || '',
 		options: {
 			encrypt: true,
 			trustServerCertificate: true,
@@ -714,28 +718,30 @@ function registerAdminRoutes(app) {
 			res.setHeader('Content-Type', 'application/zip');
 			res.setHeader('Content-Disposition', `attachment; filename="${archiveFileName}"`);
 
-			const archive = new ZipArchive({ zlib: { level: 9 } });
-			archive.on('error', (archiveErr) => {
-				console.error('[export] archive error:', archiveErr.message);
+			try {
+				const zip = new AdmZip();
+				for (const table of tableResult.recordset || []) {
+					const schemaName = table.TABLE_SCHEMA;
+					const tableName = table.TABLE_NAME;
+					const result = await pool.request().query(`SELECT * FROM ${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`);
+					const csv = rowsToCsv(result.recordset || []);
+					const fileBaseName = schemaName === 'dbo' ? tableName : `${schemaName}.${tableName}`;
+					zip.addFile(`${archiveFolder}/${fileBaseName}.csv`, Buffer.from(csv || '', 'utf8'));
+				}
+
+				const zipBuffer = zip.toBuffer();
+				res.status(200);
+				res.setHeader('Content-Type', 'application/zip');
+				res.setHeader('Content-Disposition', `attachment; filename="${archiveFileName}"`);
+				res.send(zipBuffer);
+			} catch (archiveErr) {
+				console.error('[export] archive error:', archiveErr && archiveErr.message ? archiveErr.message : String(archiveErr));
 				if (!res.headersSent) {
-					res.status(500).json({ ok: false, error: archiveErr.message });
+					res.status(500).json({ ok: false, error: archiveErr && archiveErr.message ? archiveErr.message : String(archiveErr) });
 					return;
 				}
 				res.destroy(archiveErr);
-			});
-
-			archive.pipe(res);
-
-			for (const table of tableResult.recordset || []) {
-				const schemaName = table.TABLE_SCHEMA;
-				const tableName = table.TABLE_NAME;
-				const result = await pool.request().query(`SELECT * FROM ${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`);
-				const csv = rowsToCsv(result.recordset || []);
-				const fileBaseName = schemaName === 'dbo' ? tableName : `${schemaName}.${tableName}`;
-				archive.append(csv, { name: `${archiveFolder}/${fileBaseName}.csv` });
 			}
-
-			await archive.finalize();
 		} catch (error) {
 			console.error('[export] export archive failed:', error.message);
 			if (!res.headersSent) {
@@ -996,9 +1002,6 @@ function registerAdminRoutes(app) {
 function createApp() {
 	const cors = require('cors');
 	const session = require('express-session');
-	const dotenv = require('dotenv');
-
-	dotenv.config();
 
 	const app = express();
 	const __root = path.resolve(__dirname, '..');
@@ -1014,7 +1017,7 @@ function createApp() {
 
 	// Session middleware
 	app.use(session({
-		secret: process.env.SESSION_SECRET || 'b4r4ng4y-s3cr3t-k3y',
+		secret: getSessionSecret(),
 		resave: false,
 		saveUninitialized: false,
 		cookie: {
@@ -1056,6 +1059,13 @@ function createApp() {
 	});
 
 	// Serve static files from project root
+
+	// Serve a small runtime config script so frontend can read the API base URL
+	app.get('/bw-config.js', (_req, res) => {
+		const url = APP_URL;
+		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
+	});
+
 	app.use(express.static(__root, {
 		dotfiles: 'ignore',
 		index: false,
@@ -1119,43 +1129,80 @@ async function startServer() {
 	const app = createApp();
 	const PORT = Number(process.env.PORT || 3000);
 
-	const server = app.listen(PORT, async () => {
+	// Wait for SQL Server to be available, ensure DB exists and run seeds
+	async function waitForSqlServer(maxAttempts = 30, delayMs = 2000) {
+		const cfg = getDbConfig();
+		const masterCfg = { ...cfg, database: 'master' };
+		let attempt = 0;
+		while (attempt < maxAttempts) {
+			try {
+				const pool = await sql.connect(masterCfg);
+				await pool.close();
+				return;
+			} catch (err) {
+				attempt += 1;
+				console.log(`[db] waitForSqlServer attempt ${attempt}/${maxAttempts} failed: ${err && err.message ? err.message : String(err)}`);
+				// eslint-disable-next-line no-await-in-loop
+				await new Promise((r) => setTimeout(r, delayMs));
+			}
+		}
+		throw new Error('Timed out waiting for SQL Server to become available');
+	}
+
+	// Perform initialization before listening so the DB and seeds exist when
+	// the server starts accepting requests. If initialization fails, we still
+	// start the server but log the problem so the operator can inspect logs.
+	(async () => {
 		try {
-			await ensureSupervisorAutonomy();
+			const attempts = Number(process.env.DB_INIT_RETRIES || 30);
+			const delay = Number(process.env.DB_INIT_DELAY_MS || 2000);
+			await waitForSqlServer(attempts, delay);
+			await ensureDatabaseExists();
+			try {
+				await ensureSupervisorAutonomy();
+			} catch (err) {
+				console.warn('[db] ensureSupervisorAutonomy failed:', err && err.message ? err.message : String(err));
+			}
 			try {
 				await runSchedulesSeed();
 				console.log('[db] schedules seed applied');
 			} catch (err) {
-				console.warn('[db] schedules seed failed:', err.message);
+				console.warn('[db] schedules seed failed:', err && err.message ? err.message : String(err));
 			}
-			// Create processes table (if missing) and run quick view
 			try {
 				await runProcessesSeed();
 				console.log('[db] processes seed applied');
 			} catch (err) {
-				console.warn('[db] processes seed failed:', err.message);
+				console.warn('[db] processes seed failed:', err && err.message ? err.message : String(err));
 			}
-			console.log(`[api] running on http://localhost:${PORT}`);
-		} catch (error) {
-			console.error('[api] startup seed failed:', error.message);
+		} catch (initErr) {
+			console.error('[api] pre-listen DB initialization failed:', initErr && initErr.message ? initErr.message : String(initErr));
 		}
-	});
 
-	async function shutdown() {
-		server.close(async () => {
-			try {
-				await closePool();
-			} catch (error) {
-				console.error('[api] pool close error:', error.message);
-			}
-			process.exit(0);
+		// Start listening after attempting initialization
+		const server = app.listen(PORT, () => {
+			console.log(`[api] running on ${APP_URL}`);
 		});
-	}
 
-	process.on('SIGINT', shutdown);
-	process.on('SIGTERM', shutdown);
+		async function shutdown() {
+			server.close(async () => {
+				try {
+					await closePool();
+				} catch (error) {
+					console.error('[api] pool close error:', error.message);
+				}
+				process.exit(0);
+			});
+		}
 
-	return server;
+		process.on('SIGINT', shutdown);
+		process.on('SIGTERM', shutdown);
+	})();
+
+	// Return a promise-like value: the start process is asynchronous but the
+	// exported function resolves immediately with no server handle. Callers
+	// that need the server object should call createApp() / listen() directly.
+	return null;
 }
 
 module.exports = {
