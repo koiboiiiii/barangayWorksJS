@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Resolve API base URL in the browser. Prefer explicit runtime values that can be injected
   // into the page (window.BW_API_BASE or a meta tag). Fall back to process.env when available
   // (build-time), then to the page origin, and lastly localhost.
-  const API_BASE = (function(){
+  var API_BASE = (function(){
     try {
       if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE;
       var meta = document.querySelector('meta[name="next-public-api-url"]');
@@ -31,6 +31,18 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
     return 'http://localhost:3000';
   })();
+
+  // If the page is running on a non-localhost origin (deployed site) and
+  // the resolved API_BASE points to a different origin (e.g., cached ngrok),
+  // prefer same-origin so admin requests go through the serverless proxy.
+  try {
+    if (typeof location !== 'undefined' && location.hostname && !/localhost|127\.0\.0\.1/.test(location.hostname)) {
+      var locOrigin = location.origin;
+      if (API_BASE && String(API_BASE).indexOf(locOrigin) !== 0) {
+        API_BASE = locOrigin;
+      }
+    }
+  } catch (e) {}
 
   function navigateWithFade(url) {
     if (!url) return;
