@@ -333,6 +333,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pending changes: { username -> { originalRole, selectedRole } }
     var pendingChanges = {};
+    var _pendingStorageKey = 'bw_pending_changes';
+    function _loadPendingFromStorage() {
+      try {
+        var raw = localStorage.getItem(_pendingStorageKey);
+        if (raw) {
+          var parsed = JSON.parse(raw || '{}');
+          if (parsed && typeof parsed === 'object') {
+            pendingChanges = parsed;
+          }
+        }
+      } catch (e) { /* ignore malformed storage */ }
+    }
+    function _savePendingToStorage() {
+      try {
+        localStorage.setItem(_pendingStorageKey, JSON.stringify(pendingChanges || {}));
+      } catch (e) { /* ignore */ }
+    }
+    _loadPendingFromStorage();
     var allUsers = [];
 
     // Apply button state
@@ -404,6 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             pendingChanges[username].selectedRole = role.label;
           }
+          _savePendingToStorage();
           // Update the role icon in the row
           var roleIcon = iconEl.closest('.admin1').querySelector('.icon2');
           if (roleIcon && roleImageMap[role.label]) {
@@ -450,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // remove from local list and re-render
             allUsers = allUsers.filter(function(u) { return u.username !== username; });
             delete pendingChanges[username];
+            _savePendingToStorage();
             closeFloatDropdown();
             renderUsers();
             updateApplyState();
@@ -586,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   // remove locally and re-render
                   allUsers = allUsers.filter(function(u){ return (u.username || '').toLowerCase() !== targetUsername.toLowerCase(); });
                   delete pendingChanges[targetUsername];
+                  _savePendingToStorage();
                   renderUsers();
                 } else {
                   console.warn('Auto-delete failed for', targetUsername, res && res.error);
@@ -640,6 +661,13 @@ document.addEventListener('DOMContentLoaded', () => {
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (data.ok) {
+              // Mark the server-side role as the new originalRole so UI stays consistent
+              try {
+                if (pendingChanges[cu.username]) {
+                  pendingChanges[cu.username].originalRole = pendingChanges[cu.username].selectedRole;
+                  _savePendingToStorage();
+                }
+              } catch (e) { /* ignore */ }
               applyNext(index + 1);
             } else {
               window.alert('Failed to update ' + cu.username + ': ' + (data.error || 'unknown'));
