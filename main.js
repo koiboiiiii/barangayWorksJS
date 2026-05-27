@@ -12,10 +12,25 @@
     }
 
     const configApi = String(window.BW_API_BASE || '').trim();
+    // Support static-hosted sites (GitHub Pages) by reading a <meta>
+    // or a `data-api-base` attribute on the script tag that loaded main.js.
+    let metaApi = '';
+    try {
+      var m = document.querySelector('meta[name="bw-api-base"]');
+      metaApi = (m && m.getAttribute('content')) ? String(m.getAttribute('content')).trim() : '';
+    } catch (e) { metaApi = ''; }
+    let scriptApi = '';
+    try {
+      var currentScript = document.currentScript || (function() {
+        var s = document.getElementsByTagName('script');
+        return s[s.length - 1];
+      })();
+      scriptApi = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-api-base')) ? String(currentScript.getAttribute('data-api-base')).trim() : '';
+    } catch (e) { scriptApi = ''; }
     const isLiveServer = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')
       && String(window.location.port || '') === '5500';
     const liveServerFallbackApi = isLiveServer ? 'http://localhost:3000' : '';
-    const resolvedApi = (queryApi || storedApi || configApi || liveServerFallbackApi).replace(/\/$/, '');
+    const resolvedApi = (queryApi || storedApi || configApi || metaApi || scriptApi || liveServerFallbackApi).replace(/\/$/, '');
 
     window.BW_API_BASE = resolvedApi;
 
