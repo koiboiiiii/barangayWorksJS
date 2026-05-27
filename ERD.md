@@ -1,4 +1,4 @@
-# Entity Relationship Diagram (ERD) — Simplified
+# Entity Relationship Diagram (ERD)
 
 This file contains a compact ER diagram for the core entities used by BarangayWorksJS plus a short legend. Render the Mermaid block in VS Code (Mermaid preview) to view.
 
