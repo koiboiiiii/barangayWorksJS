@@ -1016,6 +1016,10 @@ function createApp() {
 	app.use(express.json());
 
 	// Session middleware
+	// Determine whether cookies should be marked secure based on the configured API URL.
+	const runtimeApiUrl = process.env.NEXT_PUBLIC_API_URL || APP_URL || '';
+	const cookieSecure = /^https:\/\//i.test(String(runtimeApiUrl));
+
 	app.use(session({
 		secret: getSessionSecret(),
 		resave: false,
@@ -1024,7 +1028,7 @@ function createApp() {
 			httpOnly: true,
 			// Allow the admin UI to work when it is opened from file:// during local development.
 			sameSite: 'none',
-			secure: false,
+			secure: cookieSecure,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
 	}));
