@@ -1,39 +1,15 @@
-// Resolve runtime API base early: prefer query ?api_uri, then stored value,
-// then the injected fallback from .env (set by generate-bw-config.js).
-// Priority:  ?api_uri=  >  localStorage  >  injected default
+// Always use relative URLs — the API server serves both frontends and APIs.
+// Override with ?api_uri=https://... when using GitHub Pages or static hosting.
 (function resolveApiBase() {
   try {
     const params = new URLSearchParams(window.location.search || '');
     const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
-    let storedApi = '';
-    try {
-      storedApi = String(window.localStorage.getItem('bw.apiBase') || '').trim();
-    } catch (error) {
-      storedApi = '';
-    }
-
-    // https://pampers-undrafted-urchin.ngrok-free.dev is replaced at build time by generate-bw-config.js
-    var injectedApi = '';
-    try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
-
-    // On localhost → use relative URLs (same server serves both frontend and API).
-    // On any other host (GitHub Pages, ngrok, etc.) → use the injected API_URI.
-    const isLocalhost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
-    const resolvedApi = isLocalhost
-      ? (queryApi || '').replace(/\/$/, '')
-      : (queryApi || injectedApi || storedApi).replace(/\/$/, '');
-
-    window.BW_API_BASE = resolvedApi;
-
-    if (resolvedApi) {
-      try {
-        window.localStorage.setItem('bw.apiBase', resolvedApi);
-      } catch (error) {
-        // ignore storage failures
-      }
+    window.BW_API_BASE = queryApi;
+    if (queryApi) {
+      try { window.localStorage.setItem('bw.apiBase', queryApi); } catch (e) {}
     }
   } catch (error) {
-    window.BW_API_BASE = String(window.BW_API_BASE || '').replace(/\/$/, '');
+    window.BW_API_BASE = '';
   }
 })();
 
