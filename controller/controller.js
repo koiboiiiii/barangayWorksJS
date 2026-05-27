@@ -1005,7 +1005,6 @@ function createApp() {
 
 	const app = express();
 	const __root = path.resolve(__dirname, '..');
-	app.set('trust proxy', 1);
 
 	app.use(cors({
 		origin(origin, callback) {
@@ -1023,9 +1022,9 @@ function createApp() {
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			// Allow local file-based testing and HTTPS deployments behind a proxy.
-			sameSite: 'lax',
-			secure: 'auto',
+			// Allow the admin UI to work when it is opened from file:// during local development.
+			sameSite: 'none',
+			secure: false,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
 	}));

@@ -533,6 +533,16 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(function() {});
     }
 
+    // Keep the admin list in sync with server-side changes while the page stays open.
+    var usersRefreshTimer = window.setInterval(loadUsers, 5000);
+    window.addEventListener('focus', loadUsers);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) loadUsers();
+    });
+    window.addEventListener('beforeunload', function() {
+      if (usersRefreshTimer) window.clearInterval(usersRefreshTimer);
+    });
+
     // Apply button: PATCH all changed roles
     if (btnApply) {
       btnApply.addEventListener('click', function(e) {
@@ -938,6 +948,15 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(function() {});
     };
+
+    const logsRefreshTimer = window.setInterval(reloadLogs, 5000);
+    window.addEventListener('focus', reloadLogs);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) reloadLogs();
+    });
+    window.addEventListener('beforeunload', function() {
+      if (logsRefreshTimer) window.clearInterval(logsRefreshTimer);
+    });
 
     const buildLogRow = (row, index) => {
       const logRow = document.createElement('div');
@@ -1596,54 +1615,6 @@ document.addEventListener('DOMContentLoaded', () => {
   noPermToast.textContent = 'No Permission';
   document.body.appendChild(noPermToast);
   var hideTimer = null;
-  var currentAdminPermissions = {};
-
-  function readStoredAdminPermissions() {
-    try { return JSON.parse(sessionStorage.getItem('bw.admin.permissions') || '{}') || {}; } catch (ex) { return {}; }
-  }
-
-  function applyAdminPermissions(perms) {
-    currentAdminPermissions = perms && typeof perms === 'object' ? perms : {};
-    var buttonMap = {
-      btnmanageaccess: '.btnmanageaccess',
-      btnschedules: '.btnschedules',
-      btnlogs: '.btnlogs',
-      btndbconfig: '.btndbconfig',
-      btnpermission: '.btnpermission',
-      btnnewuser: '.btnnewuser',
-      btnimport: '.btnimport',
-      btnexport: '.btnexport'
-    };
-
-    Object.keys(buttonMap).forEach(function(key) {
-      var enabled = currentAdminPermissions[key] === true;
-      document.querySelectorAll(buttonMap[key]).forEach(function(btn) {
-        if (!btn) return;
-        btn.style.opacity = enabled ? '1' : '0.45';
-        btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
-        btn.style.pointerEvents = enabled ? 'auto' : 'none';
-        btn.dataset.enabled = enabled ? '1' : '0';
-      });
-    });
-  }
-
-  async function syncAdminSessionState() {
-    applyAdminPermissions(readStoredAdminPermissions());
-    try {
-      const response = await fetch(`${API_BASE}/api/admin/session`, { credentials: 'include' });
-      const data = await response.json().catch(function() { return {}; });
-      if (data && data.ok && data.admin) {
-        if (data.admin.username) sessionStorage.setItem('bw.admin.username', data.admin.username);
-        if (data.admin.role) sessionStorage.setItem('bw.admin.role', data.admin.role);
-        sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions || {}));
-        applyAdminPermissions(data.admin.permissions || {});
-        return;
-      }
-    } catch (error) {
-      // Fall back to whatever was already stored locally.
-    }
-  }
-
   function showNoPermToast() {
     if (hideTimer) { window.clearTimeout(hideTimer); hideTimer = null; }
     noPermToast.classList.add('is-visible');
@@ -1654,7 +1625,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function checkPermOrToast(btnKey, fn) {
     return function(e) {
       e.stopPropagation();
-      var perms = currentAdminPermissions && typeof currentAdminPermissions === 'object' ? currentAdminPermissions : readStoredAdminPermissions();
+      var perms;
+      try { perms = JSON.parse(sessionStorage.getItem('bw.admin.permissions') || '{}'); } catch(ex) { perms = {}; }
       if (perms[btnKey] === true) {
         fn.call(this, e);
       } else {
@@ -1663,8 +1635,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
-
-  syncAdminSessionState();
 
   // --- btnmanageaccess: scroll to frame-div ---
   var btnManageAccess = document.querySelector('.btnmanageaccess');

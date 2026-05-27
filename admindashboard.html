@@ -34,25 +34,44 @@
 				} catch (e) {}
 
   			// Server-side validation + refresh permissions in sessionStorage
-  			var xhr = new XMLHttpRequest();
-				xhr.open('GET', apiBase + '/api/admin/' + encodeURIComponent(username) + '/permissions', true);
-			xhr.withCredentials = true;
-  			xhr.onload = function() {
-  				try {
-  					var data = JSON.parse(xhr.responseText);
-  					if (!data.ok || !data.admin) {
-  						sessionStorage.removeItem('bw.admin.username');
-  						sessionStorage.removeItem('bw.admin.role');
-  						sessionStorage.removeItem('bw.admin.permissions');
-  						window.location.replace('/adminlogin.html');
-  						return;
-  					}
-  					// Refresh permissions in sessionStorage so permission checks use latest data
-  					sessionStorage.setItem('bw.admin.role', data.admin.role);
-  					sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions));
-  				} catch(e) {}
-  			};
-  			xhr.send();
+			var refreshTimer = null;
+			var refreshInFlight = false;
+			function refreshAdminSession() {
+				if (refreshInFlight) return;
+				refreshInFlight = true;
+				var xhr = new XMLHttpRequest();
+				xhr.open('GET', apiBase + '/api/admin/' + encodeURIComponent(username) + '/permissions?ts=' + Date.now(), true);
+				xhr.withCredentials = true;
+				xhr.onload = function() {
+					refreshInFlight = false;
+					try {
+						var data = JSON.parse(xhr.responseText);
+						if (!data.ok || !data.admin) {
+							sessionStorage.removeItem('bw.admin.username');
+							sessionStorage.removeItem('bw.admin.role');
+							sessionStorage.removeItem('bw.admin.permissions');
+							window.location.replace('/adminlogin.html');
+							return;
+						}
+						// Refresh permissions in sessionStorage so permission checks use latest data
+						sessionStorage.setItem('bw.admin.role', data.admin.role);
+						sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions));
+					} catch(e) {}
+				};
+				xhr.onerror = function() {
+					refreshInFlight = false;
+				};
+				xhr.send();
+			}
+			refreshAdminSession();
+			refreshTimer = window.setInterval(refreshAdminSession, 5000);
+			window.addEventListener('focus', refreshAdminSession);
+			document.addEventListener('visibilitychange', function() {
+				if (!document.hidden) refreshAdminSession();
+			});
+			window.addEventListener('beforeunload', function() {
+				if (refreshTimer) window.clearInterval(refreshTimer);
+			});
   		})();
   	</script>
   	
