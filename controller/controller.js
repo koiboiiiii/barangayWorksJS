@@ -11,6 +11,7 @@ const { sendConfirmationEmail } = require('./mailer');
 dotenv.config();
 
 const APP_URL = process.env.APP_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
+<<<<<<< HEAD
 const API_URI = process.env.API_URI || APP_URL;
 
 // --- Inject API_URI into frontend main.js at startup ---
@@ -26,6 +27,8 @@ try {
 } catch (_e) {
   // Non-fatal: frontend falls back to ?api_uri= or localStorage
 }
+=======
+>>>>>>> d950c31 (	modified:   admindashboard.html)
 
 const BUILTIN_ADMIN_USERNAME = process.env.BUILTIN_ADMIN_USERNAME || '';
 const BUILTIN_ADMIN_PASSWORD = process.env.BUILTIN_ADMIN_PASSWORD || '';
@@ -1085,7 +1088,11 @@ function createApp() {
 
 	// Serve a small runtime config script so frontend can read the API base URL
 	app.get('/bw-config.js', (_req, res) => {
+<<<<<<< HEAD
 		const url = API_URI;
+=======
+		const url = APP_URL;
+>>>>>>> d950c31 (	modified:   admindashboard.html)
 		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
 	});
 
