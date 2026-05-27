@@ -1237,6 +1237,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
+    // Periodically refresh unavailable dates so calendar stays in sync with server-side changes.
+    var schedulesRefreshTimer = window.setInterval(loadUnavailableDates, 5000);
+    window.addEventListener('focus', loadUnavailableDates);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) loadUnavailableDates();
+    });
+    window.addEventListener('beforeunload', function() {
+      if (schedulesRefreshTimer) window.clearInterval(schedulesRefreshTimer);
+    });
+
     const saveScheduleDate = async (scheduleDate, isUnavailable) => {
       try {
         await fetch(`${API_BASE}/api/schedules`, {
@@ -1321,6 +1331,9 @@ document.addEventListener('DOMContentLoaded', () => {
         saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
           if (!ok) {
             window.alert('Could not save schedule change.');
+          } else {
+            // refresh unavailable dates from server to ensure UI matches DB
+            loadUnavailableDates();
           }
         });
       }
