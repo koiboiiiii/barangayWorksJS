@@ -16,7 +16,13 @@
     var injectedApi = '';
     try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
 
-    const resolvedApi = (queryApi || injectedApi || storedApi).replace(/\/$/, '');
+    // If the page was served by the API server itself (same origin), use
+    // relative URLs. Only use the injected API_URI when on GitHub Pages
+    // or file:// protocol (static hosting).
+    const isServedByApi = !/^(koiboiiiii|koi)\.github\.io$/i.test(window.location.hostname || '')
+      && window.location.protocol !== 'file:'
+      && !!window.location.host;
+    const resolvedApi = (queryApi || (isServedByApi ? '' : injectedApi) || storedApi).replace(/\/$/, '');
 
     window.BW_API_BASE = resolvedApi;
 
