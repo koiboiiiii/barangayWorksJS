@@ -37,32 +37,6 @@
   }
 })();
 
-// --- Auto server start check - redirect to APP_URL if provided (configured via .env) ---
-(function autoRedirectToServer() {
-  if (window.location.protocol === 'file:') {
-    // Check if the server is already running on the configured APP_URL
-    const apiBase = (window.BW_API_BASE || '').replace(/\/$/, '');
-    fetch(apiBase + '/', { method: 'HEAD', mode: 'no-cors' })
-      .then(function() {
-        // Server is running - redirect to APP_URL
-        window.location.replace(apiBase + window.location.pathname);
-      })
-      .catch(function() {
-        // Server is not running - try to spawn it via fetch to a startup endpoint
-        fetch((window.BW_API_BASE || '') + '/api/start-server', { method: 'POST', mode: 'no-cors' })
-          .catch(function() {
-            // Can't auto-start, show message on the page
-            console.log('Backend server not running. Please open index.html via ' + (window.BW_API_BASE || ''));
-          });
-        // Retry redirect after 3 seconds (in case server was just started)
-        window.setTimeout(function() {
-          window.location.replace((window.BW_API_BASE || '') + window.location.pathname);
-        }, 3000);
-      });
-    return;
-  }
-})();
-
 document.addEventListener('DOMContentLoaded', () => {
   // --- Page fade transition (applies to all pages using main.js) ---
   const FADE_MS = 150;
