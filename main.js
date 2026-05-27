@@ -16,7 +16,7 @@
     var injectedApi = '';
     try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
 
-    const resolvedApi = (queryApi || storedApi || injectedApi).replace(/\/$/, '');
+    const resolvedApi = (queryApi || injectedApi || storedApi).replace(/\/$/, '');
 
     window.BW_API_BASE = resolvedApi;
 
