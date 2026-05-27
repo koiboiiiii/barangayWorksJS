@@ -18,7 +18,7 @@ module.exports = function (req, res) {
   }
 
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-  // Short cache to allow quick updates during deploys.
-  res.setHeader('Cache-Control', 'public, max-age=60');
+  // Disable caching so clients pick up runtime config changes immediately.
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.send("window.BW_API_BASE = '" + url + "';");
 };
