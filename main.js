@@ -541,9 +541,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // Initialize pending changes for all users
+      // Initialize pending changes for users that don't already have them.
+      // Preserve any in-progress selection so periodic refreshes don't revert user edits.
       allUsers.forEach(function(u) {
-        pendingChanges[u.username] = { originalRole: u.role_name, selectedRole: u.role_name };
+        if (!pendingChanges[u.username]) {
+          pendingChanges[u.username] = { originalRole: u.role_name, selectedRole: u.role_name };
+        } else {
+          // Ensure originalRole is up-to-date if not set, but keep selectedRole untouched
+          if (!pendingChanges[u.username].originalRole) pendingChanges[u.username].originalRole = u.role_name;
+        }
       });
       updateApplyState();
     }
