@@ -1,78 +1,49 @@
-// Resolve runtime API base early: prefer query ?api_uri, then stored value,
-// then /bw-config.js value (window.BW_API_BASE).
+// Determine the API base URL. On localhost:3000 use relative URLs.
+// On static hosting (GitHub Pages) use the injected API_URI from .env.
+// Override with ?api_uri=https://... in the URL.
 (function resolveApiBase() {
   try {
     const params = new URLSearchParams(window.location.search || '');
     const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
-    let storedApi = '';
-    try {
-      storedApi = String(window.localStorage.getItem('bw.apiBase') || '').trim();
-    } catch (error) {
-      storedApi = '';
-    }
+    var api = queryApi;
 
-    const configApi = String(window.BW_API_BASE || '').trim();
-    // Support static-hosted sites (GitHub Pages) by reading a <meta>
-    // or a `data-api-base` attribute on the script tag that loaded main.js.
-    let metaApi = '';
-    try {
-      var m = document.querySelector('meta[name="bw-api-base"]');
-      metaApi = (m && m.getAttribute('content')) ? String(m.getAttribute('content')).trim() : '';
-    } catch (e) { metaApi = ''; }
-    let scriptApi = '';
-    try {
-      var currentScript = document.currentScript || (function() {
-        var s = document.getElementsByTagName('script');
-        return s[s.length - 1];
-      })();
-      scriptApi = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-api-base')) ? String(currentScript.getAttribute('data-api-base')).trim() : '';
-    } catch (e) { scriptApi = ''; }
-    const isLiveServer = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')
-      && String(window.location.port || '') === '5500';
-    const liveServerFallbackApi = isLiveServer ? 'http://localhost:3000' : '';
-    const resolvedApi = (queryApi || storedApi || configApi || metaApi || scriptApi || liveServerFallbackApi).replace(/\/$/, '');
-
-    window.BW_API_BASE = resolvedApi;
-
-    if (resolvedApi) {
-      try {
-        window.localStorage.setItem('bw.apiBase', resolvedApi);
-      } catch (error) {
-        // ignore storage failures
+    if (!api) {
+      // __INJECTED_API_BASE__ is replaced at server startup
+      var injected = String('__INJECTED_API_BASE__' || '').trim();
+      if (!/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')) {
+        api = injected;
       }
     }
-  } catch (error) {
-    window.BW_API_BASE = String(window.BW_API_BASE || '').replace(/\/$/, '');
-  }
-})();
 
-// --- Auto server start check - redirect to APP_URL if provided (configured via .env) ---
-(function autoRedirectToServer() {
-  if (window.location.protocol === 'file:') {
-    // Check if the server is already running on the configured APP_URL
-    const apiBase = (window.BW_API_BASE || '').replace(/\/$/, '');
-    fetch(apiBase + '/', { method: 'HEAD', mode: 'no-cors' })
-      .then(function() {
-        // Server is running - redirect to APP_URL
-        window.location.replace(apiBase + window.location.pathname);
-      })
-      .catch(function() {
-        // Server is not running - try to spawn it via fetch to a startup endpoint
-        fetch((window.BW_API_BASE || '') + '/api/start-server', { method: 'POST', mode: 'no-cors' })
-          .catch(function() {
-            // Can't auto-start, show message on the page
-            console.log('Backend server not running. Please open index.html via ' + (window.BW_API_BASE || ''));
-          });
-        // Retry redirect after 3 seconds (in case server was just started)
-        window.setTimeout(function() {
-          window.location.replace((window.BW_API_BASE || '') + window.location.pathname);
-        }, 3000);
-      });
-    return;
+    window.BW_API_BASE = api;
+    if (api) {
+      try { window.localStorage.setItem('bw.apiBase', api); } catch (e) {}
+    }
+  } catch (e) {
+    window.BW_API_BASE = '';
   }
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Auto-attach exportToken as Bearer header on all API calls when cross-origin
+  (function patchFetchWithToken() {
+    const originalFetch = window.fetch;
+    window.fetch = function(url, opts) {
+      opts = opts || {};
+      var token = '';
+      try { token = sessionStorage.getItem('bw.admin.exportToken') || ''; } catch (e) { token = ''; }
+      if (token && window.BW_API_BASE && String(url).indexOf(window.BW_API_BASE) === 0) {
+        opts.headers = opts.headers || {};
+        if (opts.headers instanceof Headers) {
+          if (!opts.headers.has('Authorization')) opts.headers.set('Authorization', 'Bearer ' + token);
+        } else if (!opts.headers['Authorization']) {
+          opts.headers['Authorization'] = 'Bearer ' + token;
+        }
+      }
+      return originalFetch.call(window, url, opts);
+    };
+  })();
+
   // --- Page fade transition (applies to all pages using main.js) ---
   const FADE_MS = 150;
   const fadeStyle = document.createElement('style');
