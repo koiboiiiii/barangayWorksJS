@@ -1024,7 +1024,9 @@ function createApp() {
 	app.use(cors({
 		origin(origin, callback) {
 			if (!origin) return callback(null, true);
-			return callback(null, true);
+			// Echo back the exact origin so credentialed requests work cross-origin
+			// (Chrome blocks Access-Control-Allow-Origin: * with credentials: true)
+			callback(null, origin);
 		},
 		credentials: true,
 	}));
