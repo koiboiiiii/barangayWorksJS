@@ -1062,7 +1062,8 @@ function createApp() {
 
 	// Serve a small runtime config script so frontend can read the API base URL
 	app.get('/bw-config.js', (_req, res) => {
-		const url = APP_URL;
+		// Prefer NEXT_PUBLIC_API_URL when provided (useful when exposing the API via ngrok or a proxy)
+		const url = process.env.NEXT_PUBLIC_API_URL || APP_URL;
 		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
 	});
 
