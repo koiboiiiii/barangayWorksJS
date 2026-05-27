@@ -3,6 +3,7 @@
 <head>
   	<meta charset="utf-8">
   	<meta name="viewport" content="initial-scale=1, width=device-width">
+		<meta name="next-public-api-url" content="https://pampers-undrafted-urchin.ngrok-free.dev">
   	<script>
   		(function() {
   			// If loaded from file://, redirect to the server login page immediately
@@ -23,9 +24,18 @@
   				return;
   			}
 
+				var apiBase = 'https://pampers-undrafted-urchin.ngrok-free.dev';
+				try {
+					var meta = document.querySelector('meta[name="next-public-api-url"]');
+					if (meta && meta.content) {
+						apiBase = meta.content;
+						window.BW_API_BASE = meta.content;
+					}
+				} catch (e) {}
+
   			// Server-side validation + refresh permissions in sessionStorage
   			var xhr = new XMLHttpRequest();
-  			xhr.open('GET', '/api/admin/' + encodeURIComponent(username) + '/permissions', true);
+				xhr.open('GET', apiBase + '/api/admin/' + encodeURIComponent(username) + '/permissions', true);
 			xhr.withCredentials = true;
   			xhr.onload = function() {
   				try {

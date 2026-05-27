@@ -1596,6 +1596,54 @@ document.addEventListener('DOMContentLoaded', () => {
   noPermToast.textContent = 'No Permission';
   document.body.appendChild(noPermToast);
   var hideTimer = null;
+  var currentAdminPermissions = {};
+
+  function readStoredAdminPermissions() {
+    try { return JSON.parse(sessionStorage.getItem('bw.admin.permissions') || '{}') || {}; } catch (ex) { return {}; }
+  }
+
+  function applyAdminPermissions(perms) {
+    currentAdminPermissions = perms && typeof perms === 'object' ? perms : {};
+    var buttonMap = {
+      btnmanageaccess: '.btnmanageaccess',
+      btnschedules: '.btnschedules',
+      btnlogs: '.btnlogs',
+      btndbconfig: '.btndbconfig',
+      btnpermission: '.btnpermission',
+      btnnewuser: '.btnnewuser',
+      btnimport: '.btnimport',
+      btnexport: '.btnexport'
+    };
+
+    Object.keys(buttonMap).forEach(function(key) {
+      var enabled = currentAdminPermissions[key] === true;
+      document.querySelectorAll(buttonMap[key]).forEach(function(btn) {
+        if (!btn) return;
+        btn.style.opacity = enabled ? '1' : '0.45';
+        btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        btn.style.pointerEvents = enabled ? 'auto' : 'none';
+        btn.dataset.enabled = enabled ? '1' : '0';
+      });
+    });
+  }
+
+  async function syncAdminSessionState() {
+    applyAdminPermissions(readStoredAdminPermissions());
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/session`, { credentials: 'include' });
+      const data = await response.json().catch(function() { return {}; });
+      if (data && data.ok && data.admin) {
+        if (data.admin.username) sessionStorage.setItem('bw.admin.username', data.admin.username);
+        if (data.admin.role) sessionStorage.setItem('bw.admin.role', data.admin.role);
+        sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions || {}));
+        applyAdminPermissions(data.admin.permissions || {});
+        return;
+      }
+    } catch (error) {
+      // Fall back to whatever was already stored locally.
+    }
+  }
+
   function showNoPermToast() {
     if (hideTimer) { window.clearTimeout(hideTimer); hideTimer = null; }
     noPermToast.classList.add('is-visible');
@@ -1606,8 +1654,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function checkPermOrToast(btnKey, fn) {
     return function(e) {
       e.stopPropagation();
-      var perms;
-      try { perms = JSON.parse(sessionStorage.getItem('bw.admin.permissions') || '{}'); } catch(ex) { perms = {}; }
+      var perms = currentAdminPermissions && typeof currentAdminPermissions === 'object' ? currentAdminPermissions : readStoredAdminPermissions();
       if (perms[btnKey] === true) {
         fn.call(this, e);
       } else {
@@ -1616,6 +1663,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
+
+  syncAdminSessionState();
 
   // --- btnmanageaccess: scroll to frame-div ---
   var btnManageAccess = document.querySelector('.btnmanageaccess');
