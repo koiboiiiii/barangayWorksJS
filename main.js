@@ -1,3 +1,36 @@
+// Resolve runtime API base early: prefer query ?api_uri, then stored value,
+// then /bw-config.js value (window.BW_API_BASE).
+(function resolveApiBase() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
+    let storedApi = '';
+    try {
+      storedApi = String(window.localStorage.getItem('bw.apiBase') || '').trim();
+    } catch (error) {
+      storedApi = '';
+    }
+
+    const configApi = String(window.BW_API_BASE || '').trim();
+    const isLiveServer = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')
+      && String(window.location.port || '') === '5500';
+    const liveServerFallbackApi = isLiveServer ? 'http://localhost:3000' : '';
+    const resolvedApi = (queryApi || storedApi || configApi || liveServerFallbackApi).replace(/\/$/, '');
+
+    window.BW_API_BASE = resolvedApi;
+
+    if (resolvedApi) {
+      try {
+        window.localStorage.setItem('bw.apiBase', resolvedApi);
+      } catch (error) {
+        // ignore storage failures
+      }
+    }
+  } catch (error) {
+    window.BW_API_BASE = String(window.BW_API_BASE || '').replace(/\/$/, '');
+  }
+})();
+
 // --- Auto server start check - redirect to APP_URL if provided (configured via .env) ---
 (function autoRedirectToServer() {
   if (window.location.protocol === 'file:') {

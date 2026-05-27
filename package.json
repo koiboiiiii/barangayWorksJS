@@ -5,6 +5,7 @@
   "main": "controller/controller.js",
   "scripts": {
     "start": "node -e \"require('./controller/controller').startServer()\" & sleep 2 && open http://localhost:3000",
+    "stop": "sh -c 'pid=$(lsof -tiTCP:3000 -sTCP:LISTEN -Pn); if [ -n \"$pid\" ]; then kill $pid && echo \"Stopped server process: $pid\"; else echo \"No server process is listening on port 3000\"; fi'",
     "dev": "nodemon -e \"node -e 'require(\\\"./controller/controller\\\").startServer()'\""
   },
   "dependencies": {
