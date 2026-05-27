@@ -16,12 +16,10 @@
     var injectedApi = '';
     try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
 
-    // When served by the API server (same origin), always use relative URLs.
-    // Only use the injected/stored API_URI when on GitHub Pages or file:// (static hosting).
-    const isServedByApi = !/^(koiboiiiii|koi)\.github\.io$/i.test(window.location.hostname || '')
-      && window.location.protocol !== 'file:'
-      && !!window.location.host;
-    const resolvedApi = isServedByApi
+    // On localhost → use relative URLs (same server serves both frontend and API).
+    // On any other host (GitHub Pages, ngrok, etc.) → use the injected API_URI.
+    const isLocalhost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
+    const resolvedApi = isLocalhost
       ? (queryApi || '').replace(/\/$/, '')
       : (queryApi || injectedApi || storedApi).replace(/\/$/, '');
 
