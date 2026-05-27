@@ -1,13 +1,23 @@
-// Always use relative URLs — the API server serves both frontends and APIs.
-// Override with ?api_uri=https://... when using GitHub Pages or static hosting.
+// On same origin (localhost:3000) use relative URLs.
+// On static hosting (GitHub Pages, file://) use the injected API_URI from .env.
+// Override any source with ?api_uri=https://... in the URL.
 (function resolveApiBase() {
   try {
     const params = new URLSearchParams(window.location.search || '');
     const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
-    window.BW_API_BASE = queryApi;
     if (queryApi) {
+      window.BW_API_BASE = queryApi;
       try { window.localStorage.setItem('bw.apiBase', queryApi); } catch (e) {}
+      return;
     }
+
+    // https://pampers-undrafted-urchin.ngrok-free.dev is replaced at server startup with the real API_URI from .env
+    var injectedApi = '';
+    try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
+
+    // Localhost→relative URLs; GitHub Pages/file://→use injected ngrok URL
+    const isLocalhost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '');
+    window.BW_API_BASE = isLocalhost ? '' : injectedApi;
   } catch (error) {
     window.BW_API_BASE = '';
   }
