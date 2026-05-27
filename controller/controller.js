@@ -1016,19 +1016,18 @@ function createApp() {
 	app.use(express.json());
 
 	// Session middleware
-	// Determine whether cookies should be marked secure based on the configured API URL.
-	const runtimeApiUrl = process.env.NEXT_PUBLIC_API_URL || APP_URL || '';
-	const cookieSecure = /^https:\/\//i.test(String(runtimeApiUrl));
-
+	// Use a non-secure cookie configuration for local development so browsers
+	// accept the session cookie when the app is loaded over http://localhost.
+	// We keep `sameSite: 'none'` so cross-site requests (when using ngrok) will
+	// still be permitted by the browser.
 	app.use(session({
 		secret: getSessionSecret(),
 		resave: false,
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			// Allow the admin UI to work when it is opened from file:// during local development.
 			sameSite: 'none',
-			secure: cookieSecure,
+			secure: false,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
 	}));
