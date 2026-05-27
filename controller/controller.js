@@ -1037,8 +1037,7 @@ function createApp() {
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			// Allow the admin UI to work when it is opened from file:// during local development.
-			sameSite: 'none',
+			sameSite: 'lax',
 			secure: false,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
