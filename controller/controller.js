@@ -11,21 +11,6 @@ const { sendConfirmationEmail } = require('./mailer');
 dotenv.config();
 
 const APP_URL = process.env.APP_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
-const API_URI = process.env.API_URI || APP_URL;
-
-// --- Inject API_URI into frontend main.js at startup ---
-try {
-  const mainJsPath = path.resolve(__dirname, '..', 'main.js');
-  const mainJs = require('fs').readFileSync(mainJsPath, 'utf8');
-  const placeholder = '__INJECTED_API_BASE__';
-  if (mainJs.indexOf(placeholder) !== -1) {
-    const jsLiteral = API_URI.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    require('fs').writeFileSync(mainJsPath, mainJs.split(placeholder).join(jsLiteral), 'utf8');
-    console.log('[inject] Injected API_URI into main.js');
-  }
-} catch (_e) {
-  // Non-fatal: frontend falls back to ?api_uri= or localStorage
-}
 
 const BUILTIN_ADMIN_USERNAME = process.env.BUILTIN_ADMIN_USERNAME || '';
 const BUILTIN_ADMIN_PASSWORD = process.env.BUILTIN_ADMIN_PASSWORD || '';
@@ -1021,22 +1006,14 @@ function createApp() {
 	const app = express();
 	const __root = path.resolve(__dirname, '..');
 
-	app.set('trust proxy', 1);
 	app.use(cors({
 		origin(origin, callback) {
 			if (!origin) return callback(null, true);
-			// Echo back the exact origin so credentialed requests work cross-origin
-			// (Chrome blocks Access-Control-Allow-Origin: * with credentials: true)
-			callback(null, origin);
+			return callback(null, true);
 		},
 		credentials: true,
 	}));
 	app.use(express.json());
-
-	// When API_URI differs from APP_URL (e.g. ngrok vs localhost), the frontend
-	// is accessed cross-origin: the session cookie must use SameSite=None; Secure.
-	// When running purely local (same origin), use Lax; Secure=false.
-	const usesCrossOrigin = API_URI !== APP_URL;
 
 	// Session middleware
 	app.use(session({
@@ -1045,8 +1022,9 @@ function createApp() {
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			sameSite: usesCrossOrigin ? 'none' : 'lax',
-			secure: usesCrossOrigin,
+			// Allow the admin UI to work when it is opened from file:// during local development.
+			sameSite: 'none',
+			secure: false,
 			maxAge: 24 * 60 * 60 * 1000,
 		},
 	}));
@@ -1084,7 +1062,7 @@ function createApp() {
 
 	// Serve a small runtime config script so frontend can read the API base URL
 	app.get('/bw-config.js', (_req, res) => {
-		const url = API_URI;
+		const url = APP_URL;
 		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
 	});
 
