@@ -1,5 +1,6 @@
 // Resolve runtime API base early: prefer query ?api_uri, then stored value,
-// then /bw-config.js value (window.BW_API_BASE).
+// then the injected fallback from .env (set by generate-bw-config.js).
+// Priority:  ?api_uri=  >  localStorage  >  injected default
 (function resolveApiBase() {
   try {
     const params = new URLSearchParams(window.location.search || '');
@@ -11,26 +12,11 @@
       storedApi = '';
     }
 
-    const configApi = String(window.BW_API_BASE || '').trim();
-    // Support static-hosted sites (GitHub Pages) by reading a <meta>
-    // or a `data-api-base` attribute on the script tag that loaded main.js.
-    let metaApi = '';
-    try {
-      var m = document.querySelector('meta[name="bw-api-base"]');
-      metaApi = (m && m.getAttribute('content')) ? String(m.getAttribute('content')).trim() : '';
-    } catch (e) { metaApi = ''; }
-    let scriptApi = '';
-    try {
-      var currentScript = document.currentScript || (function() {
-        var s = document.getElementsByTagName('script');
-        return s[s.length - 1];
-      })();
-      scriptApi = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-api-base')) ? String(currentScript.getAttribute('data-api-base')).trim() : '';
-    } catch (e) { scriptApi = ''; }
-    const isLiveServer = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')
-      && String(window.location.port || '') === '5500';
-    const liveServerFallbackApi = isLiveServer ? 'http://localhost:3000' : '';
-    const resolvedApi = (queryApi || storedApi || configApi || metaApi || scriptApi || liveServerFallbackApi).replace(/\/$/, '');
+    // https://pampers-undrafted-urchin.ngrok-free.dev is replaced at build time by generate-bw-config.js
+    var injectedApi = '';
+    try { injectedApi = String('https://pampers-undrafted-urchin.ngrok-free.dev' || '').trim(); } catch(e) { injectedApi = ''; }
+
+    const resolvedApi = (queryApi || storedApi || injectedApi).replace(/\/$/, '');
 
     window.BW_API_BASE = resolvedApi;
 

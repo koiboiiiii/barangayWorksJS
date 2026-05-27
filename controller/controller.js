@@ -11,6 +11,21 @@ const { sendConfirmationEmail } = require('./mailer');
 dotenv.config();
 
 const APP_URL = process.env.APP_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
+const API_URI = process.env.API_URI || APP_URL;
+
+// --- Inject API_URI into frontend main.js at startup ---
+try {
+  const mainJsPath = path.resolve(__dirname, '..', 'main.js');
+  const mainJs = require('fs').readFileSync(mainJsPath, 'utf8');
+  const placeholder = '__INJECTED_API_BASE__';
+  if (mainJs.indexOf(placeholder) !== -1) {
+    const jsLiteral = API_URI.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    require('fs').writeFileSync(mainJsPath, mainJs.split(placeholder).join(jsLiteral), 'utf8');
+    console.log('[inject] Injected API_URI into main.js');
+  }
+} catch (_e) {
+  // Non-fatal: frontend falls back to ?api_uri= or localStorage
+}
 
 const BUILTIN_ADMIN_USERNAME = process.env.BUILTIN_ADMIN_USERNAME || '';
 const BUILTIN_ADMIN_PASSWORD = process.env.BUILTIN_ADMIN_PASSWORD || '';
@@ -1062,7 +1077,7 @@ function createApp() {
 
 	// Serve a small runtime config script so frontend can read the API base URL
 	app.get('/bw-config.js', (_req, res) => {
-		const url = APP_URL;
+		const url = API_URI;
 		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
 	});
 
