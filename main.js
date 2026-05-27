@@ -1,3 +1,51 @@
+// Resolve runtime API base early: prefer query ?api_uri, then stored value,
+// then /bw-config.js value (window.BW_API_BASE).
+(function resolveApiBase() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const queryApi = (params.get('api_uri') || params.get('api') || '').trim();
+    let storedApi = '';
+    try {
+      storedApi = String(window.localStorage.getItem('bw.apiBase') || '').trim();
+    } catch (error) {
+      storedApi = '';
+    }
+
+    const configApi = String(window.BW_API_BASE || '').trim();
+    // Support static-hosted sites (GitHub Pages) by reading a <meta>
+    // or a `data-api-base` attribute on the script tag that loaded main.js.
+    let metaApi = '';
+    try {
+      var m = document.querySelector('meta[name="bw-api-base"]');
+      metaApi = (m && m.getAttribute('content')) ? String(m.getAttribute('content')).trim() : '';
+    } catch (e) { metaApi = ''; }
+    let scriptApi = '';
+    try {
+      var currentScript = document.currentScript || (function() {
+        var s = document.getElementsByTagName('script');
+        return s[s.length - 1];
+      })();
+      scriptApi = (currentScript && currentScript.getAttribute && currentScript.getAttribute('data-api-base')) ? String(currentScript.getAttribute('data-api-base')).trim() : '';
+    } catch (e) { scriptApi = ''; }
+    const isLiveServer = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || '')
+      && String(window.location.port || '') === '5500';
+    const liveServerFallbackApi = isLiveServer ? 'http://localhost:3000' : '';
+    const resolvedApi = (queryApi || storedApi || configApi || metaApi || scriptApi || liveServerFallbackApi).replace(/\/$/, '');
+
+    window.BW_API_BASE = resolvedApi;
+
+    if (resolvedApi) {
+      try {
+        window.localStorage.setItem('bw.apiBase', resolvedApi);
+      } catch (error) {
+        // ignore storage failures
+      }
+    }
+  } catch (error) {
+    window.BW_API_BASE = String(window.BW_API_BASE || '').replace(/\/$/, '');
+  }
+})();
+
 // --- Auto server start check - redirect to APP_URL if provided (configured via .env) ---
 (function autoRedirectToServer() {
   if (window.location.protocol === 'file:') {
