@@ -3,6 +3,7 @@
 <head>
   	<meta charset="utf-8">
   	<meta name="viewport" content="initial-scale=1, width=device-width">
+		<meta name="next-public-api-url" content="https://pampers-undrafted-urchin.ngrok-free.dev">
   	<script>
   		(function() {
   			// If loaded from file://, redirect to the server login page immediately
@@ -23,26 +24,54 @@
   				return;
   			}
 
+				var apiBase = 'https://pampers-undrafted-urchin.ngrok-free.dev';
+				try {
+					var meta = document.querySelector('meta[name="next-public-api-url"]');
+					if (meta && meta.content) {
+						apiBase = meta.content;
+						window.BW_API_BASE = meta.content;
+					}
+				} catch (e) {}
+
   			// Server-side validation + refresh permissions in sessionStorage
-  			var xhr = new XMLHttpRequest();
-  			xhr.open('GET', '/api/admin/' + encodeURIComponent(username) + '/permissions', true);
-			xhr.withCredentials = true;
-  			xhr.onload = function() {
-  				try {
-  					var data = JSON.parse(xhr.responseText);
-  					if (!data.ok || !data.admin) {
-  						sessionStorage.removeItem('bw.admin.username');
-  						sessionStorage.removeItem('bw.admin.role');
-  						sessionStorage.removeItem('bw.admin.permissions');
-  						window.location.replace('/adminlogin.html');
-  						return;
-  					}
-  					// Refresh permissions in sessionStorage so permission checks use latest data
-  					sessionStorage.setItem('bw.admin.role', data.admin.role);
-  					sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions));
-  				} catch(e) {}
-  			};
-  			xhr.send();
+			var refreshTimer = null;
+			var refreshInFlight = false;
+			function refreshAdminSession() {
+				if (refreshInFlight) return;
+				refreshInFlight = true;
+				var xhr = new XMLHttpRequest();
+				xhr.open('GET', apiBase + '/api/admin/' + encodeURIComponent(username) + '/permissions?ts=' + Date.now(), true);
+				xhr.withCredentials = true;
+				xhr.onload = function() {
+					refreshInFlight = false;
+					try {
+						var data = JSON.parse(xhr.responseText);
+						if (!data.ok || !data.admin) {
+							sessionStorage.removeItem('bw.admin.username');
+							sessionStorage.removeItem('bw.admin.role');
+							sessionStorage.removeItem('bw.admin.permissions');
+							window.location.replace('/adminlogin.html');
+							return;
+						}
+						// Refresh permissions in sessionStorage so permission checks use latest data
+						sessionStorage.setItem('bw.admin.role', data.admin.role);
+						sessionStorage.setItem('bw.admin.permissions', JSON.stringify(data.admin.permissions));
+					} catch(e) {}
+				};
+				xhr.onerror = function() {
+					refreshInFlight = false;
+				};
+				xhr.send();
+			}
+			refreshAdminSession();
+			refreshTimer = window.setInterval(refreshAdminSession, 5000);
+			window.addEventListener('focus', refreshAdminSession);
+			document.addEventListener('visibilitychange', function() {
+				if (!document.hidden) refreshAdminSession();
+			});
+			window.addEventListener('beforeunload', function() {
+				if (refreshTimer) window.clearInterval(refreshTimer);
+			});
   		})();
   	</script>
   	
@@ -151,7 +180,7 @@
 	<div class="btnlogout">
 		<div class="logout">Logout</div>
 	</div>
+	<script src="/api/bw-config.js"></script>
 	<script src="./main.js"></script>
-	<script src="/bw-config.js"></script>
 	</body>
 	</html>

@@ -1006,23 +1006,41 @@ function createApp() {
 	const app = express();
 	const __root = path.resolve(__dirname, '..');
 
+	// Configure allowed origins from environment variable ALLOWED_ORIGINS
+	// Example: ALLOWED_ORIGINS="https://barangayworks.vercel.app,https://example.com"
+	const allowedOriginsRaw = (process.env.ALLOWED_ORIGINS || '').trim();
+	const allowedOrigins = allowedOriginsRaw ? allowedOriginsRaw.split(',').map(s => s.trim()).filter(Boolean) : null;
+
 	app.use(cors({
 		origin(origin, callback) {
+			// Allow non-browser requests with no Origin (curl, server-to-server)
 			if (!origin) return callback(null, true);
-			return callback(null, true);
+
+			// If ALLOWED_ORIGINS is not configured, allow all origins (backwards compatible)
+			if (!allowedOrigins) return callback(null, true);
+
+			// If the incoming origin is in the allowlist, allow it
+			if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+
+			// Otherwise reject CORS for that origin
+			return callback(new Error('CORS origin not allowed'));
 		},
 		credentials: true,
+		optionsSuccessStatus: 200,
 	}));
 	app.use(express.json());
 
 	// Session middleware
+	// Use a non-secure cookie configuration for local development so browsers
+	// accept the session cookie when the app is loaded over http://localhost.
+	// We keep `sameSite: 'none'` so cross-site requests (when using ngrok) will
+	// still be permitted by the browser.
 	app.use(session({
 		secret: getSessionSecret(),
 		resave: false,
 		saveUninitialized: false,
 		cookie: {
 			httpOnly: true,
-			// Allow the admin UI to work when it is opened from file:// during local development.
 			sameSite: 'none',
 			secure: false,
 			maxAge: 24 * 60 * 60 * 1000,
@@ -1061,9 +1079,25 @@ function createApp() {
 	// Serve static files from project root
 
 	// Serve a small runtime config script so frontend can read the API base URL
+	// The script prefers the page's origin when served from localhost (so the
+	// browser will make same-origin requests during local development). When the
+	// page is loaded from a remote origin (e.g. via ngrok), it will use the
+	// configured NEXT_PUBLIC_API_URL or APP_URL.
 	app.get('/bw-config.js', (_req, res) => {
-		const url = APP_URL;
-		res.type('application/javascript').send(`window.BW_API_BASE = '${url}';`);
+		const envUrl = process.env.NEXT_PUBLIC_API_URL || APP_URL;
+		const script = `(function(){
+			try {
+				var hostname = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+				if (/localhost|127\\.0\\.0\\.1/.test(hostname)) {
+					window.BW_API_BASE = window.location.origin;
+				} else {
+					window.BW_API_BASE = '${envUrl}';
+				}
+			} catch (e) {
+				window.BW_API_BASE = '${envUrl}';
+			}
+		})();`;
+		res.type('application/javascript').send(script);
 	});
 
 	app.use(express.static(__root, {

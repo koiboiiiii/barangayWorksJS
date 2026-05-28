@@ -18,6 +18,74 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('cw-fade-ready');
   });
 
+  // Resolve API base URL in the browser. Prefer explicit runtime values that can be injected
+  // into the page (window.BW_API_BASE or a meta tag). Fall back to process.env when available
+  // (build-time), then to the page origin, and lastly localhost.
+  var API_BASE = (function(){
+    try {
+      if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE;
+      var meta = document.querySelector('meta[name="next-public-api-url"]');
+      if (meta && meta.content) return meta.content;
+      if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+      if (typeof location !== 'undefined' && location.origin) return location.origin;
+    } catch (e) {}
+    return 'http://localhost:3000';
+  })();
+
+  // If the page is running on a non-localhost origin (deployed site) and
+  // the resolved API_BASE points to a different origin (e.g., cached ngrok),
+  // prefer same-origin so admin requests go through the serverless proxy.
+  try {
+    if (typeof location !== 'undefined' && location.hostname && !/localhost|127\.0\.0\.1/.test(location.hostname)) {
+      var locOrigin = location.origin;
+      if (API_BASE && String(API_BASE).indexOf(locOrigin) !== 0) {
+        API_BASE = locOrigin;
+      }
+    }
+  } catch (e) {}
+
+  // -- Navigation instrumentation (debugging random reloads) --
+  (function navInstrumentation(){
+    try {
+      var bwLogKey = 'bw_nav_log';
+      function pushNavEvent(ev) {
+        try {
+          var a = JSON.parse(localStorage.getItem(bwLogKey) || '[]');
+          a.push({ ts: Date.now(), ev: ev, stack: (new Error()).stack.split('\n').slice(2,8) });
+          if (a.length > 20) a = a.slice(a.length - 20);
+          localStorage.setItem(bwLogKey, JSON.stringify(a));
+        } catch (e) { /* ignore */ }
+      }
+
+      var _origReplace = window.location.replace.bind(window.location);
+      window.location.replace = function(url) {
+        pushNavEvent({ type: 'replace', url: String(url) });
+        return _origReplace(url);
+      };
+
+      var _origAssign = window.location.assign.bind(window.location);
+      window.location.assign = function(url) {
+        pushNavEvent({ type: 'assign', url: String(url) });
+        return _origAssign(url);
+      };
+
+      var _origReload = window.location.reload.bind(window.location);
+      window.location.reload = function() {
+        pushNavEvent({ type: 'reload' });
+        return _origReload();
+      };
+
+      // ensure navigateWithFade also logs
+      var _origNavigateWithFade = navigateWithFade;
+      navigateWithFade = function(url) {
+        pushNavEvent({ type: 'navigateWithFade', url: String(url) });
+        return _origNavigateWithFade(url);
+      };
+    } catch (e) {
+      /* ignore instrumentation failures */
+    }
+  })();
+
   function navigateWithFade(url) {
     if (!url) return;
     document.body.classList.remove('cw-fade-ready');
@@ -252,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var btnApply = document.querySelector('.btnapply');
     var permBtnBack = document.querySelector('.btnback');
     var menuEl = document.querySelector('.menu');
-    var adminApiBase = window.BW_API_BASE || 'http://localhost:3000';
+    var adminApiBase = API_BASE;
 
     var roles = [
       { label: 'Supervisor', image: './assets/supervisor.png' },
@@ -265,6 +333,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Pending changes: { username -> { originalRole, selectedRole } }
     var pendingChanges = {};
+    var _pendingStorageKey = 'bw_pending_changes';
+    function _loadPendingFromStorage() {
+      try {
+        var raw = localStorage.getItem(_pendingStorageKey);
+        if (raw) {
+          var parsed = JSON.parse(raw || '{}');
+          if (parsed && typeof parsed === 'object') {
+            pendingChanges = parsed;
+          }
+        }
+      } catch (e) { /* ignore malformed storage */ }
+    }
+    function _savePendingToStorage() {
+      try {
+        localStorage.setItem(_pendingStorageKey, JSON.stringify(pendingChanges || {}));
+      } catch (e) { /* ignore */ }
+    }
+    _loadPendingFromStorage();
     var allUsers = [];
 
     // Apply button state
@@ -336,6 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             pendingChanges[username].selectedRole = role.label;
           }
+          _savePendingToStorage();
           // Update the role icon in the row
           var roleIcon = iconEl.closest('.admin1').querySelector('.icon2');
           if (roleIcon && roleImageMap[role.label]) {
@@ -373,15 +460,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!username) return;
         if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
         // Call backend to delete user
-        fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(username), {
+        fetch(`${API_BASE}/api/admin/user/${encodeURIComponent(username)}`, {
           method: 'DELETE'
-        })
+        , credentials: 'include' })
         .then(function(r) { return r.json().catch(function(){ return { ok: false }; }); })
         .then(function(data) {
           if (data && data.ok) {
             // remove from local list and re-render
             allUsers = allUsers.filter(function(u) { return u.username !== username; });
             delete pendingChanges[username];
+            _savePendingToStorage();
             closeFloatDropdown();
             renderUsers();
             updateApplyState();
@@ -436,7 +524,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         var roleIcon = document.createElement('img');
         roleIcon.className = 'icon2';
-        roleIcon.src = roleImageMap[u.role_name] || './assets/supervisor.png';
+        // Prefer any in-progress selection (pendingChanges) so the UI doesn't revert
+        // to the server-supplied role while the admin is selecting a new one.
+        var effectiveRole = (pendingChanges[u.username] && pendingChanges[u.username].selectedRole) || u.role_name;
+        roleIcon.src = roleImageMap[effectiveRole] || './assets/supervisor.png';
         roleIcon.alt = u.role_name + ' role';
 
         var nameLabel = document.createElement('div');
@@ -444,7 +535,8 @@ document.addEventListener('DOMContentLoaded', () => {
         nameLabel.dataset.displayname = u.display_name || '';
         nameLabel.dataset.barangayid = u.barangay_id || '';
         var barangaySuffix = u.barangay_id ? ' — ' + u.barangay_id : '';
-        nameLabel.textContent = (u.display_name || '') + ' (' + (u.role_name || '') + ')' + barangaySuffix;
+        var displayRole = (pendingChanges[u.username] && pendingChanges[u.username].selectedRole) || u.role_name || '';
+        nameLabel.textContent = (u.display_name || '') + ' (' + displayRole + ')' + barangaySuffix;
 
         row.appendChild(dropdownIcon);
         row.appendChild(roleIcon);
@@ -473,16 +565,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // Initialize pending changes for all users
+      // Initialize pending changes for users that don't already have them.
+      // Preserve any in-progress selection so periodic refreshes don't revert user edits.
       allUsers.forEach(function(u) {
-        pendingChanges[u.username] = { originalRole: u.role_name, selectedRole: u.role_name };
+        if (!pendingChanges[u.username]) {
+          pendingChanges[u.username] = { originalRole: u.role_name, selectedRole: u.role_name };
+        } else {
+          // Ensure originalRole is up-to-date if not set, but keep selectedRole untouched
+          if (!pendingChanges[u.username].originalRole) pendingChanges[u.username].originalRole = u.role_name;
+        }
       });
       updateApplyState();
     }
 
     // Load users from API
     function loadUsers() {
-      fetch(adminApiBase + '/api/admin/users')
+      fetch(`${API_BASE}/api/admin/users`, { credentials: 'include' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (!data.ok || !data.users) return;
@@ -501,13 +599,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!found) return;
             var targetUsername = found.username;
             if (!targetUsername) return;
-            fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(targetUsername), { method: 'DELETE' })
+            fetch(`${API_BASE}/api/admin/user/${encodeURIComponent(targetUsername)}`, { method: 'DELETE', credentials: 'include' })
               .then(function(r){ return r.json().catch(function(){ return { ok: false }; }); })
               .then(function(res){
                 if (res && res.ok) {
                   // remove locally and re-render
                   allUsers = allUsers.filter(function(u){ return (u.username || '').toLowerCase() !== targetUsername.toLowerCase(); });
                   delete pendingChanges[targetUsername];
+                  _savePendingToStorage();
                   renderUsers();
                 } else {
                   console.warn('Auto-delete failed for', targetUsername, res && res.error);
@@ -518,6 +617,16 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(function() {});
     }
+
+    // Keep the admin list in sync with server-side changes while the page stays open.
+    var usersRefreshTimer = window.setInterval(loadUsers, 5000);
+    window.addEventListener('focus', loadUsers);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) loadUsers();
+    });
+    window.addEventListener('beforeunload', function() {
+      if (usersRefreshTimer) window.clearInterval(usersRefreshTimer);
+    });
 
     // Apply button: PATCH all changed roles
     if (btnApply) {
@@ -543,14 +652,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
           var cu = changedUsers[index];
-          fetch(adminApiBase + '/api/admin/user/' + encodeURIComponent(cu.username) + '/role', {
+          fetch(`${API_BASE}/api/admin/user/${encodeURIComponent(cu.username)}/role`, {
             method: 'PATCH',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role_name: cu.role })
           })
           .then(function(r) { return r.json(); })
           .then(function(data) {
             if (data.ok) {
+              // Mark the server-side role as the new originalRole so UI stays consistent
+              try {
+                if (pendingChanges[cu.username]) {
+                  pendingChanges[cu.username].originalRole = pendingChanges[cu.username].selectedRole;
+                  _savePendingToStorage();
+                }
+              } catch (e) { /* ignore */ }
               applyNext(index + 1);
             } else {
               window.alert('Failed to update ' + cu.username + ': ' + (data.error || 'unknown'));
@@ -668,8 +785,9 @@ document.addEventListener('DOMContentLoaded', () => {
         var password = getFieldValue(fields.password);
         var displayName = getFieldValue(fields.fullname);
 
-        fetch(adminApiBase + '/api/admin/user', {
+        fetch(`${API_BASE}/api/admin/user`, {
           method: 'PUT',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             username: username,
@@ -807,8 +925,9 @@ document.addEventListener('DOMContentLoaded', () => {
         var previousText = btnSuccess.textContent;
         btnSuccess.textContent = 'Submitting...';
         try {
-          const response = await fetch((window.BW_API_BASE || 'http://localhost:3000') + '/api/processes', {
+          const response = await fetch(`${API_BASE}/api/processes`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(Object.assign({}, data, { selected_date: selectedDate }))
           });
@@ -912,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const reloadLogs = () => {
-      fetch(adminApiBase + '/api/processes')
+      fetch(`${API_BASE}/api/processes`, { credentials: 'include' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data && data.ok && Array.isArray(data.processes)) {
@@ -921,6 +1040,15 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(function() {});
     };
+
+    const logsRefreshTimer = window.setInterval(reloadLogs, 5000);
+    window.addEventListener('focus', reloadLogs);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) reloadLogs();
+    });
+    window.addEventListener('beforeunload', function() {
+      if (logsRefreshTimer) window.clearInterval(logsRefreshTimer);
+    });
 
     const buildLogRow = (row, index) => {
       const logRow = document.createElement('div');
@@ -949,8 +1077,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const processId = logRow.dataset.processId;
         if (!processId) return;
         if (!window.confirm('Delete this log entry?')) return;
-        fetch(adminApiBase + '/api/processes/' + encodeURIComponent(processId), {
-          method: 'DELETE'
+        fetch(`${API_BASE}/api/processes/${encodeURIComponent(processId)}`, {
+          method: 'DELETE',
+          credentials: 'include'
         })
           .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
           .then(function(data) {
@@ -1013,7 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isAdminLoginPage = !!document.querySelector('.adminlogin');
   if (isAdminLoginPage) {
     // Auto-run the hierarchy seed when login page opens
-    fetch('/api/admin/init-hierarchy').catch(function() {});
+    fetch(`${API_BASE}/api/admin/init-hierarchy`, { credentials: 'include' }).catch(function() {});
 
     const usernameField = document.querySelector('.tfusername');
     const passwordField = document.querySelector('.tfpassword');
@@ -1097,8 +1226,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setBtnLoginEnabled(false);
 
         try {
-          const response = await fetch(`${adminApiBase}/api/admin/login`, {
+          const response = await fetch(`${API_BASE}/api/admin/login`, {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
           });
@@ -1182,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadUnavailableDates = async () => {
       try {
-        const response = await fetch(adminApiBase + '/api/schedules');
+        const response = await fetch(`${API_BASE}/api/schedules`, { credentials: 'include' });
         const payload = await response.json().catch(() => ({}));
         unavailableDates.clear();
         if (payload && payload.ok && Array.isArray(payload.dates)) {
@@ -1199,10 +1329,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
+    // Periodically refresh unavailable dates so calendar stays in sync with server-side changes.
+    var schedulesRefreshTimer = window.setInterval(loadUnavailableDates, 5000);
+    window.addEventListener('focus', loadUnavailableDates);
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) loadUnavailableDates();
+    });
+    window.addEventListener('beforeunload', function() {
+      if (schedulesRefreshTimer) window.clearInterval(schedulesRefreshTimer);
+    });
+
     const saveScheduleDate = async (scheduleDate, isUnavailable) => {
       try {
-        await fetch(adminApiBase + '/api/schedules', {
+        await fetch(`${API_BASE}/api/schedules`, {
           method: 'PUT',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
         });
@@ -1282,6 +1423,9 @@ document.addEventListener('DOMContentLoaded', () => {
         saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
           if (!ok) {
             window.alert('Could not save schedule change.');
+          } else {
+            // refresh unavailable dates from server to ensure UI matches DB
+            loadUnavailableDates();
           }
         });
       }
@@ -1558,7 +1702,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLogout.style.cursor = 'pointer';
     btnLogout.addEventListener('click', async () => {
       try {
-        await fetch('/api/admin/logout', { method: 'POST' });
+        await fetch(`${API_BASE}/api/admin/logout`, { method: 'POST', credentials: 'include' });
       } catch (e) { /* ignore */ }
       sessionStorage.removeItem('bw.admin.username');
       sessionStorage.removeItem('bw.admin.role');
