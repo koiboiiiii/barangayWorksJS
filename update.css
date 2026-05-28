@@ -168,7 +168,9 @@
 	top: 1.43vw;
 	left: 34.88vw;
 	object-fit: cover;
-	z-index: 3;
+	z-index: 6;
+	cursor: pointer;
+	pointer-events: auto;
 }
 .status-icon {
 	width: 2.20vw;
@@ -178,7 +180,8 @@
 	top: 1.43vw;
 	left: 1.37vw;
 	object-fit: cover;
-	z-index: 4;
+	z-index: 1;
+	pointer-events: none;
 }
 .done2 {
 	height: 4.58vw;
