@@ -113,7 +113,7 @@
 	flex: 0 0 auto;
 }
 .lblappointment {
-	width: 10.77vw;
+	width: auto;
 	height: 1.19vw;
 	position: absolute;
 	margin: 0 !important;
@@ -146,7 +146,7 @@
 	z-index: 1;
 }
 .lblserial {
-	width: 3.33vw;
+	width: auto;
 	height: 1.19vw;
 	position: absolute;
 	margin: 0 !important;
