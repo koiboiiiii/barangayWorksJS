@@ -14,7 +14,9 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(204).end();
 
     // Extract username from the URL path (e.g. /api/admin/user/johndoe)
-    const pathParts = req.url.split('/');
+    // Remove query string first
+    const cleanPath = req.url.split('?')[0];
+    const pathParts = cleanPath.split('/');
     const username = pathParts[4]; // index 0 = '', 1 = 'api', 2 = 'admin', 3 = 'user', 4 = username
     if (!username) return res.status(400).json({ ok: false, error: 'Username is required' });
 
