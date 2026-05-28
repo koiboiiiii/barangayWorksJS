@@ -38,8 +38,12 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const path = req.url || '/api/processes';
-    const target = new URL(path, backendBase).toString();
+    const requestUrl = new URL(req.url || '/api/processes/', 'http://localhost');
+    const processId = String(requestUrl.searchParams.get('id') || '').trim();
+    const targetPath = req.method === 'DELETE' && processId
+      ? `/api/processes/${encodeURIComponent(processId)}`
+      : '/api/processes/';
+    const target = new URL(targetPath + requestUrl.search, backendBase).toString();
     const headers = {};
     // Avoid forwarding browser cookies to the backend for logs requests.
     // The logs page only needs the raw process data; forwarding cookies caused
