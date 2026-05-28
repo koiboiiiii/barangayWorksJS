@@ -47,6 +47,10 @@ module.exports = async (req, res) => {
     // If the client sent a cookie for this domain, forward it to backend
     if (req.headers.cookie) headers.cookie = req.headers.cookie;
 
+    // Add ngrok interstital bypass header so the proxy can reach the backend
+    // without hitting the ngrok security/interstitial page (ERR_NGROK_6024)
+    headers['ngrok-skip-browser-warning'] = 'true';
+
     let body = undefined;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       const buf = await readBody(req);
