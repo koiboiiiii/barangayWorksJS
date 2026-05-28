@@ -68,6 +68,24 @@ module.exports = async (req, res) => {
     if (cd) res.setHeader('Content-Disposition', cd);
     const cl = fetchRes.headers.get('content-length');
     if (cl) res.setHeader('Content-Length', cl);
+    // Forward Set-Cookie so the browser receives the session cookie from the backend.
+    // The backend sets sameSite=none without Secure, but Chrome requires Secure when
+    // sameSite=none is used on HTTPS. Since Vercel terminates HTTPS, we add Secure here.
+    const setCookie = fetchRes.headers.get('set-cookie');
+    if (setCookie) {
+      const rewritten = String(setCookie)
+        .split(';')
+        .map(function(part) {
+          var p = part.trim().toLowerCase();
+          // If the cookie has SameSite=None but no Secure flag, add Secure
+          if (p.indexOf('samesite=none') !== -1 && setCookie.indexOf('Secure') === -1 && setCookie.indexOf('secure') === -1) {
+            return part + '; Secure';
+          }
+          return part;
+        })
+        .join(';');
+      res.setHeader('Set-Cookie', rewritten);
+    }
 
     const arrayBuffer = await fetchRes.arrayBuffer();
     res.send(Buffer.from(arrayBuffer));
