@@ -2247,18 +2247,8 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = function(evt) {
           try {
             const arrayBuffer = evt.target.result;
-            // Send directly to the ngrok backend, bypassing Vercel proxy for binary POST body
-            var importUrl = (function(){
-              try {
-                var meta = document.querySelector('meta[name="next-public-api-url"]');
-                if (meta && meta.content) return meta.content + '/api/admin/import-archive';
-              } catch (e) {}
-              try {
-                if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE + '/api/admin/import-archive';
-              } catch (e) {}
-              return API_BASE + '/api/admin/import-archive';
-            })();
-            // Get export token from login response for auth (backup if session cookie not set for ngrok domain)
+            // Send through the Vercel proxy (same-origin = session cookie domain).
+            // Proxy is now fixed to forward: Set-Cookie, ngrok bypass, binary data, Content-Disposition.
             var exportToken = '';
             try { exportToken = sessionStorage.getItem('bw.export_token') || ''; } catch (e) {}
             var headers = {
@@ -2266,8 +2256,7 @@ document.addEventListener('DOMContentLoaded', () => {
               'X-File-Name': file.name,
             };
             if (exportToken) headers['X-Admin-Token'] = exportToken;
-            console.log('[import] sending to:', importUrl);
-            fetch(importUrl, {
+            fetch(`${API_BASE}/api/admin/import-archive`, {
               method: 'POST',
               credentials: 'include',
               headers: headers,
