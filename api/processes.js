@@ -41,13 +41,11 @@ module.exports = async (req, res) => {
     const path = req.url || '/api/processes';
     const target = new URL(path, backendBase).toString();
     const headers = {};
-
-    for (const headerName of Object.keys(req.headers || {})) {
-      if (headerName.toLowerCase() === 'host') continue;
-      headers[headerName] = req.headers[headerName];
-    }
-
-    if (req.headers.cookie) headers.cookie = req.headers.cookie;
+    // Avoid forwarding browser cookies to the backend for logs requests.
+    // The logs page only needs the raw process data; forwarding cookies caused
+    // the browser path to return an HTML page instead of JSON.
+    if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
+    if (req.headers.accept) headers.accept = req.headers.accept;
 
     let body;
     if (req.method === 'POST' || req.method === 'DELETE') {
