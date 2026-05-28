@@ -2217,7 +2217,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const csvInput = document.createElement('input');
     csvInput.type = 'file';
-    csvInput.accept = '.csv,text/csv';
+    csvInput.accept = '.csv,text/csv,.zip,application/zip';
     csvInput.style.display = 'none';
     document.body.appendChild(csvInput);
 

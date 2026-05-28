@@ -278,6 +278,83 @@ function buildArchiveExpectation() {
 	};
 }
 
+// Patterns that indicate malicious SQL injection attempts in data
+const SQL_INJECTION_PATTERNS = [
+	/['"]\s*OR\s+1\s*=\s*1/i,
+	/['"]\s*OR\s+'?'?\s*=\s*'?'?/i,
+	/['"]\s*OR\s+"?"?\s*=\s*"?\"?/i,
+	/['"]\s*OR\s*\d+\s*=\s*\d+/i,
+	/;\s*(?:DROP|DELETE|TRUNCATE|ALTER|CREATE|EXEC|EXECUTE|INSERT|UPDATE|MERGE)\s/i,
+	/UNION\s+(?:ALL\s+)?SELECT/i,
+	/WAITFOR\s+DELAY/i,
+	/BENCHMARK\s*\(/i,
+	/SLEEP\s*\(/i,
+	/xp_cmdshell/i,
+	/EXEC\s*\(/i,
+	/INTO\s+OUTFILE/i,
+	/INTO\s+DUMPFILE/i,
+	/LOAD_FILE\s*\(/i,
+];
+
+function hasSqlInjection(value) {
+	if (value === null || value === undefined) return false;
+	const text = String(value);
+	for (const pattern of SQL_INJECTION_PATTERNS) {
+		if (pattern.test(text)) return true;
+	}
+	return false;
+}
+
+async function validateAllTablesBeforeImport(pool, archivePath, expectedMap, csvTexts) {
+	const errors = [];
+	for (const [fileName, meta] of Object.entries(expectedMap)) {
+		const csvText = csvTexts[fileName];
+		if (!csvText || !String(csvText).trim()) continue;
+
+		const records = parseCsv(csvText, {
+			columns: true,
+			skip_empty_lines: true,
+			trim: true,
+		});
+
+		const columns = await getTableColumnMetadata(pool, meta.schema, meta.table);
+		const insertableColumns = columns.filter((c) => !c.is_computed && c.column_name !== 'serial_number');
+		const csvColumns = records.length ? Object.keys(records[0]) : [];
+		const columnSet = new Set(csvColumns);
+		const requiredColumns = insertableColumns.filter((c) => !c.is_nullable && !c.is_identity && c.column_name !== 'created_at');
+		const missingRequired = requiredColumns.filter((c) => !columnSet.has(c.column_name));
+
+		if (missingRequired.length) {
+			errors.push(`Archive ${fileName} is missing required columns for ${meta.schema}.${meta.table}: ${missingRequired.map((c) => c.column_name).join(', ')}`);
+			continue;
+		}
+
+		// Check for unknown columns in CSV that don't exist in the table
+		const dbColumnNames = new Set(columns.map((c) => c.column_name));
+		const unknownColumns = csvColumns.filter((c) => !dbColumnNames.has(c));
+		if (unknownColumns.length) {
+			errors.push(`Archive ${fileName} contains unknown columns not in ${meta.schema}.${meta.table}: ${unknownColumns.join(', ')}`);
+			continue;
+		}
+
+		// Check for SQL injection in any value
+		for (let i = 0; i < records.length; i++) {
+			for (const col of csvColumns) {
+				const val = records[i][col];
+				if (hasSqlInjection(val)) {
+					errors.push(`Archive ${fileName} row ${i + 1} column "${col}" contains suspicious content and was rejected for security`);
+					break;
+				}
+			}
+			if (errors.length) break;
+		}
+	}
+
+	if (errors.length) {
+		throw new Error(errors[0]);
+	}
+}
+
 async function restoreTableFromCsv(pool, archivePath, schemaName, tableName, csvText) {
 	if (!String(csvText || '').trim()) {
 		return;
@@ -294,12 +371,6 @@ async function restoreTableFromCsv(pool, archivePath, schemaName, tableName, csv
 	const insertableColumns = columns.filter((column) => !column.is_computed && column.column_name !== 'serial_number');
 	const csvColumns = records.length ? Object.keys(records[0]) : [];
 	const columnSet = new Set(csvColumns);
-	const requiredColumns = insertableColumns.filter((column) => !column.is_nullable && !column.is_identity && column.column_name !== 'created_at');
-	const missingRequired = requiredColumns.filter((column) => !columnSet.has(column.column_name));
-	if (missingRequired.length) {
-		throw new Error(`Archive ${archivePath} is missing required columns for ${schemaName}.${tableName}: ${missingRequired.map((column) => column.column_name).join(', ')}`);
-	}
-
 	const targetColumns = insertableColumns.filter((column) => columnSet.has(column.column_name));
 	const needsIdentityInsert = !!identityColumn && targetColumns.some((column) => column.column_name === identityColumn.column_name);
 
@@ -801,7 +872,19 @@ function registerAdminRoutes(app) {
 				if (baseName) byBaseName.set(baseName, entry);
 			});
 
+			// Extract CSV texts for validation
+			const csvTexts = {};
+			entries.forEach((entry) => {
+				const baseName = path.posix.basename(normalizeArchiveName(entry.entryName));
+				if (baseName) csvTexts[baseName] = entry.getData().toString('utf8');
+			});
+
 			const pool = await getPool();
+
+			// Validate ALL tables BEFORE any deletion — fail fast to protect the database
+			await validateAllTablesBeforeImport(pool, uploadName, expectedMap, csvTexts);
+
+			// All validations passed, begin transactional restore
 			const transaction = new sql.Transaction(pool);
 			await transaction.begin();
 
@@ -817,11 +900,10 @@ function registerAdminRoutes(app) {
 				const restoreOrder = ['admin_roles.csv', 'admin_users.csv', 'admin_role_permissions.csv', 'processes.csv', 'schedule_unavailable_dates.csv'];
 				for (const fileName of restoreOrder) {
 					const meta = expectedMap[fileName];
-					const entry = byBaseName.get(fileName);
-					if (!entry) {
+					const csvText = csvTexts[fileName];
+					if (!csvText) {
 						throw new Error(`Missing required file: ${fileName}`);
 					}
-					const csvText = entry.getData().toString('utf8');
 					await restoreTableFromCsv(transaction, fileName, meta.schema, meta.table, csvText);
 				}
 				await transaction.commit();
