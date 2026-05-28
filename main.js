@@ -2242,11 +2242,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const isZip = isZipUpload(file.name, file.type);
       if (isZip) {
         // Upload zip to server import endpoint
+        // Use the original API_BASE (ngrok URL) directly instead of going through Vercel proxy
+        // to avoid any binary body mangling or size limits in the serverless function
         const reader = new FileReader();
         reader.onload = function(evt) {
           try {
             const arrayBuffer = evt.target.result;
-            fetch(`${API_BASE}/api/admin/import-archive`, {
+            var importApiBase = (function(){
+              try {
+                if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE;
+                var meta = document.querySelector('meta[name="next-public-api-url"]');
+                if (meta && meta.content) return meta.content;
+              } catch (e) {}
+              return API_BASE;
+            })();
+            fetch(importApiBase + '/api/admin/import-archive', {
               method: 'POST',
               credentials: 'include',
               headers: {
