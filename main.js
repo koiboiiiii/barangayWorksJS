@@ -1328,6 +1328,25 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCalendar(viewDate);
       }
     };
+    // Persist selected calendar cell across refreshes so user selection doesn't vanish
+    var _schedulePendingKey = 'bw_pending_schedule';
+    function _loadSchedulePending() {
+      try {
+        var raw = localStorage.getItem(_schedulePendingKey);
+        if (!raw) return null;
+        var obj = JSON.parse(raw);
+        if (obj && obj.date) return obj;
+      } catch (e) { /* ignore */ }
+      return null;
+    }
+    function _saveSchedulePending(date, isUnavailable) {
+      try {
+        localStorage.setItem(_schedulePendingKey, JSON.stringify({ date: date, isUnavailable: !!isUnavailable }));
+      } catch (e) { /* ignore */ }
+    }
+    function _clearSchedulePending() {
+      try { localStorage.removeItem(_schedulePendingKey); } catch(e){}
+    }
 
     // Periodically refresh unavailable dates so calendar stays in sync with server-side changes.
     var schedulesRefreshTimer = window.setInterval(loadUnavailableDates, 5000);
@@ -1341,12 +1360,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveScheduleDate = async (scheduleDate, isUnavailable) => {
       try {
-        await fetch(`${API_BASE}/api/schedules`, {
+        const resp = await fetch(`${API_BASE}/api/schedules`, {
           method: 'PUT',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
         });
+        const payload = await resp.json().catch(() => null);
+        if (!resp.ok || !payload || !payload.ok) {
+          return false;
+        }
+        // Update local set to match server-confirmed state
+        if (isUnavailable) unavailableDates.add(scheduleDate);
+        else unavailableDates.delete(scheduleDate);
+        try { _clearSchedulePending(); } catch (e) {}
         return true;
       } catch (error) {
         return false;
@@ -1401,7 +1428,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const markSelectedUnavailable = () => {
       if (!selectedButton) return;
-      selectedCellUnavailable = !selectedCellUnavailable;
+      var prevState = selectedCellUnavailable;
+      var newState = !selectedCellUnavailable;
+      // Optimistically update UI
+      selectedCellUnavailable = newState;
       if (selectedCellUnavailable) {
         selectedButton.classList.add('unavailable');
         selectedButton.style.background = '#fbe3e3';
@@ -1418,13 +1448,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const selectedDate = selectedButton.dataset.date;
       if (selectedDate) {
-        if (selectedCellUnavailable) unavailableDates.add(selectedDate);
-        else unavailableDates.delete(selectedDate);
+        // persist pending intent before sending
+        _saveSchedulePending(selectedDate, selectedCellUnavailable);
         saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
           if (!ok) {
+            // revert UI to previous server-known state
+            selectedCellUnavailable = prevState;
+            if (selectedCellUnavailable) {
+              selectedButton.classList.add('unavailable');
+              selectedButton.style.background = '#fbe3e3';
+              const inner = selectedButton.querySelector('.day-picker8, .day-picker17');
+              if (inner) inner.style.color = '#e17272';
+            } else {
+              selectedButton.classList.remove('unavailable');
+              selectedButton.style.background = '#2c2c2c';
+              const inner = selectedButton.querySelector('.day-picker8, .day-picker17');
+              if (inner) inner.style.color = '#f5f5f5';
+            }
+            _saveSchedulePending(selectedDate, selectedCellUnavailable);
             window.alert('Could not save schedule change.');
+            // ensure UI matches server
+            loadUnavailableDates();
           } else {
-            // refresh unavailable dates from server to ensure UI matches DB
+            // server confirmed; refresh to get canonical state
+            _clearSchedulePending();
             loadUnavailableDates();
           }
         });
@@ -1487,6 +1534,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             cell.style.cursor = 'pointer';
             cell.addEventListener('click', () => {
+          cell.addEventListener('click', () => {
               if (selectedButton) clearCellSelection(selectedButton);
               selectedButton = cell;
               selectedCellUnavailable = cell.classList.contains('unavailable');
@@ -1494,11 +1542,32 @@ document.addEventListener('DOMContentLoaded', () => {
               calendarRoot.dataset.selected = cell.dataset.date;
               setBtnSuccessEnabled(true);
               updateBtnMarkState();
+              // Persist the current selection so background refreshes don't clear it
+              _saveSchedulePending(cell.dataset.date, selectedCellUnavailable);
             });
           }
           row.appendChild(cell);
         }
         tbodyEl.appendChild(row);
+          // After rendering, restore any pending selection if it applies to current view
+          try {
+            const pending = _loadSchedulePending();
+            if (pending && pending.date) {
+              // find the cell for this date in the rendered calendar
+              const cell = tbodyEl.querySelector(`[data-date='${pending.date}']`);
+              if (cell && !cell.classList.contains('disabled')) {
+                if (selectedButton) clearCellSelection(selectedButton);
+                selectedButton = cell;
+                selectedCellUnavailable = !!pending.isUnavailable && cell.classList.contains('unavailable');
+                // If pending.isUnavailable differs from current class, prefer pending selection state visually
+                if (pending.isUnavailable) cell.classList.add('unavailable');
+                applySelectedCellState(cell);
+                calendarRoot.dataset.selected = cell.dataset.date;
+                setBtnSuccessEnabled(true);
+                updateBtnMarkState();
+              }
+            }
+          } catch (e) { /* ignore restore errors */ }
       }
     }
 
