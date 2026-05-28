@@ -349,7 +349,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      loadUpdateSearch();
+      // Do not auto-populate the update search fields on load (testing only)
+      // loadUpdateSearch();
       if (updateEmailField) {
         updateEmailField.addEventListener('input', updateSearchButtonState);
         updateEmailField.addEventListener('keyup', updateSearchButtonState);
@@ -396,10 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runUpdateSearch();
       });
 
-      // Fetch once on load if a persisted query exists.
-      if (getEditableValue(updateEmailField) && getEditableValue(updateFirstField) && getEditableValue(updateLastField)) {
-        runUpdateSearch();
-      }
+      // Do not auto-run persisted searches on page load.
     }
 
     if (!isUpdatePage) {
