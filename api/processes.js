@@ -40,9 +40,10 @@ module.exports = async (req, res) => {
 
     const requestUrl = new URL(req.url || '/api/processes/', 'http://localhost');
     const processId = String(requestUrl.searchParams.get('id') || '').trim();
+    const hasSearchParams = String(requestUrl.searchParams.get('email') || '').trim() && String(requestUrl.searchParams.get('first_name') || '').trim() && String(requestUrl.searchParams.get('last_name') || '').trim();
     const targetPath = req.method === 'DELETE' && processId
       ? `/api/processes/${encodeURIComponent(processId)}`
-      : '/api/processes/';
+      : (req.method === 'GET' && hasSearchParams ? '/api/processes/search' : '/api/processes/');
     const target = new URL(targetPath + requestUrl.search, backendBase).toString();
     const headers = {};
     // Avoid forwarding browser cookies to the backend for logs requests.

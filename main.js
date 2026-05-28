@@ -134,91 +134,267 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.style.touchAction = '';
     };
     if (isUpdatePage) lockScroll();
+
+    const updateSearchStorageKey = 'bw_update_search';
+    const updateMenuEl = isUpdatePage ? document.querySelector('.update .menu') : null;
+    const updateEmailField = isUpdatePage ? document.querySelector('.text-field .tfusedemail') : null;
+    const updateFirstField = isUpdatePage ? document.querySelector('.text-field3 .tfusedemail') : null;
+    const updateLastField = isUpdatePage ? document.querySelector('.text-field5 .tfusedemail') : null;
+
+    const getEditableValue = (field) => {
+      if (!field) return '';
+      if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') return String(field.value || '').trim();
+      return String(field.textContent || '').trim();
+    };
+
+    const setEditableValue = (field, value) => {
+      if (!field) return;
+      if (field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') field.value = value;
+      else field.textContent = value;
+    };
+
+    const formatSelectedDate = (value) => {
+      if (!value) return '';
+      return String(value).slice(0, 10);
+    };
+
+    const getTodayIsoDate = () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    };
+
+    const getStatusIconSrc = (selectedDate) => {
+      const dateValue = formatSelectedDate(selectedDate);
+      if (dateValue && dateValue < getTodayIsoDate()) {
+        return './assets/done.png';
+      }
+      return './assets/ongoing.png';
+    };
+
+    const renderUpdateResults = (rows) => {
+      if (!updateMenuEl) return;
+      updateMenuEl.innerHTML = '';
+
+      if (!rows || !rows.length) {
+        const empty = document.createElement('div');
+        empty.className = 'done';
+        empty.style.display = 'flex';
+        empty.style.alignItems = 'center';
+        empty.style.justifyContent = 'center';
+        empty.textContent = 'No appointment found.';
+        updateMenuEl.appendChild(empty);
+        return;
+      }
+
+      rows.forEach((row) => {
+        const resultRow = document.createElement('div');
+        resultRow.className = 'done';
+        resultRow.dataset.processId = row.id ? String(row.id) : '';
+
+        const serviceLabel = document.createElement('div');
+        serviceLabel.className = 'lblappointment';
+        serviceLabel.textContent = row.service || '';
+
+        const dateLabel = document.createElement('div');
+        dateLabel.className = 'lbldate';
+        dateLabel.textContent = formatSelectedDate(row.selected_date);
+
+        const serialLabel = document.createElement('div');
+        serialLabel.className = 'lblserial';
+        serialLabel.textContent = row.serial_number || '';
+
+        const trashIcon = document.createElement('img');
+        trashIcon.className = 'btntrash-icon';
+        trashIcon.src = './assets/trash.png';
+        trashIcon.alt = 'Trash';
+        trashIcon.style.cursor = 'pointer';
+        trashIcon.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const processId = resultRow.dataset.processId;
+          if (!processId) return;
+          if (!window.confirm('Delete this appointment?')) return;
+          fetch(`${API_BASE}/api/processes?id=${encodeURIComponent(processId)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          })
+            .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
+            .then(function(data) {
+              if (data && data.ok) {
+                runUpdateSearch();
+              } else {
+                window.alert('Failed to delete appointment: ' + (data && data.error ? data.error : 'unknown error'));
+              }
+            })
+            .catch(function() {
+              window.alert('Could not reach server to delete appointment');
+            });
+        });
+
+        const statusIcon = document.createElement('img');
+        statusIcon.className = 'status-icon';
+        statusIcon.src = getStatusIconSrc(row.selected_date);
+        statusIcon.alt = formatSelectedDate(row.selected_date) < getTodayIsoDate() ? 'Done' : 'Ongoing';
+
+        resultRow.appendChild(serviceLabel);
+        resultRow.appendChild(dateLabel);
+        resultRow.appendChild(serialLabel);
+        resultRow.appendChild(trashIcon);
+        resultRow.appendChild(statusIcon);
+
+        updateMenuEl.appendChild(resultRow);
+      });
+    };
+
+    const persistUpdateSearch = () => {
+      try {
+        localStorage.setItem(updateSearchStorageKey, JSON.stringify({
+          email: getEditableValue(updateEmailField),
+          first_name: getEditableValue(updateFirstField),
+          last_name: getEditableValue(updateLastField)
+        }));
+      } catch (e) { /* ignore */ }
+    };
+
+    const loadUpdateSearch = () => {
+      try {
+        const raw = localStorage.getItem(updateSearchStorageKey);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        setEditableValue(updateEmailField, parsed.email || '');
+        setEditableValue(updateFirstField, parsed.first_name || '');
+        setEditableValue(updateLastField, parsed.last_name || '');
+      } catch (e) { /* ignore */ }
+    };
+
     const updateSearchButtonState = () => {
-      const emailField = document.querySelector('.text-field .tfusedemail');
-      const firstNameField = document.querySelector('.text-field3 .tfusedemail');
-      const lastNameField = document.querySelector('.text-field5 .tfusedemail');
-      const email = (emailField?.textContent || '').trim();
-      const firstName = (firstNameField?.textContent || '').trim();
-      const lastName = (lastNameField?.textContent || '').trim();
-      const enabled = email.length > 0 || (firstName.length > 0 && lastName.length > 0);
+      const email = getEditableValue(updateEmailField);
+      const firstName = getEditableValue(updateFirstField);
+      const lastName = getEditableValue(updateLastField);
+      const enabled = email.length > 0 && firstName.length > 0 && lastName.length > 0;
       btnSearch.style.opacity = enabled ? '1' : '0.45';
       btnSearch.style.cursor = enabled ? 'pointer' : 'not-allowed';
       btnSearch.style.pointerEvents = enabled ? 'auto' : 'none';
       btnSearch.dataset.enabled = enabled ? '1' : '0';
+      persistUpdateSearch();
     };
-    btnSearch.addEventListener('click', () => {
-      if (btnSearch.dataset.enabled !== '1') return;
-      unlockScroll();
-      const target = document.querySelector('.rectangle-parent');
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    [
-      document.querySelector('.text-field .tfusedemail'),
-      document.querySelector('.text-field3 .tfusedemail'),
-      document.querySelector('.text-field5 .tfusedemail')
-    ].filter(Boolean).forEach((field) => {
-      field.addEventListener('input', updateSearchButtonState);
-      field.addEventListener('keyup', updateSearchButtonState);
-      field.addEventListener('blur', updateSearchButtonState);
-      field.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
-    });
-    // --- Persist pending update/search fields to avoid UI reverts during polling/navigation ---
-    if (isUpdatePage) {
-      const _updatePendingKey = 'bw_pending_update_search';
-      function _loadUpdatePending() {
-        try {
-          const raw = localStorage.getItem(_updatePendingKey);
-          if (!raw) return null;
-          return JSON.parse(raw || '{}');
-        } catch (e) { return null; }
-      }
-      function _saveUpdatePending() {
-        try {
-          const emailField = document.querySelector('.text-field .tfusedemail');
-          const firstNameField = document.querySelector('.text-field3 .tfusedemail');
-          const lastNameField = document.querySelector('.text-field5 .tfusedemail');
-          const payload = {
-            email: (emailField && (emailField.textContent || '').trim()) || '',
-            firstName: (firstNameField && (firstNameField.textContent || '').trim()) || '',
-            lastName: (lastNameField && (lastNameField.textContent || '').trim()) || ''
-          };
-          localStorage.setItem(_updatePendingKey, JSON.stringify(payload));
-        } catch (e) { /* ignore */ }
+
+    const runUpdateSearch = () => {
+      const email = getEditableValue(updateEmailField);
+      const firstName = getEditableValue(updateFirstField);
+      const lastName = getEditableValue(updateLastField);
+      if (!email || !firstName || !lastName) {
+        window.alert('Enter email, first name, and last name to search.');
+        return;
       }
 
-      // If no pending data, prefill the email per request
-      try {
-        const stored = _loadUpdatePending();
+      persistUpdateSearch();
+
+      fetch(`${API_BASE}/api/processes?email=${encodeURIComponent(email)}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&ts=${Date.now()}`, {
+        credentials: 'include',
+        cache: 'no-store'
+      })
+        .then(function(r) { return r.json().catch(function() { return { ok: false }; }); })
+        .then(function(data) {
+          if (data && data.ok && Array.isArray(data.processes)) {
+            renderUpdateResults(data.processes);
+          } else {
+            renderUpdateResults([]);
+          }
+        })
+        .catch(function() {
+          window.alert('Could not reach server to search appointments');
+        });
+    };
+
+    if (isUpdatePage) {
+      loadUpdateSearch();
+      if (updateEmailField) {
+        updateEmailField.addEventListener('input', updateSearchButtonState);
+        updateEmailField.addEventListener('keyup', updateSearchButtonState);
+        updateEmailField.addEventListener('blur', updateSearchButtonState);
+        updateEmailField.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
+        updateEmailField.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (btnSearch.dataset.enabled === '1') runUpdateSearch();
+          }
+        });
+      }
+      if (updateFirstField) {
+        updateFirstField.addEventListener('input', updateSearchButtonState);
+        updateFirstField.addEventListener('keyup', updateSearchButtonState);
+        updateFirstField.addEventListener('blur', updateSearchButtonState);
+        updateFirstField.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
+        updateFirstField.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (btnSearch.dataset.enabled === '1') runUpdateSearch();
+          }
+        });
+      }
+      if (updateLastField) {
+        updateLastField.addEventListener('input', updateSearchButtonState);
+        updateLastField.addEventListener('keyup', updateSearchButtonState);
+        updateLastField.addEventListener('blur', updateSearchButtonState);
+        updateLastField.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
+        updateLastField.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (btnSearch.dataset.enabled === '1') runUpdateSearch();
+          }
+        });
+      }
+      updateSearchButtonState();
+
+      btnSearch.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (btnSearch.dataset.enabled !== '1') return;
+        runUpdateSearch();
+      });
+
+      // Fetch once on load if a persisted query exists.
+      if (getEditableValue(updateEmailField) && getEditableValue(updateFirstField) && getEditableValue(updateLastField)) {
+        runUpdateSearch();
+      }
+    }
+
+    if (!isUpdatePage) {
+      const updateSearchButtonState = () => {
         const emailField = document.querySelector('.text-field .tfusedemail');
         const firstNameField = document.querySelector('.text-field3 .tfusedemail');
         const lastNameField = document.querySelector('.text-field5 .tfusedemail');
-        if (stored && typeof stored === 'object') {
-          if (stored.email && emailField) emailField.textContent = stored.email;
-          if (stored.firstName && firstNameField) firstNameField.textContent = stored.firstName;
-          if (stored.lastName && lastNameField) lastNameField.textContent = stored.lastName;
-        } else {
-          // Prefill email with provided value when there's no saved pending search
-          const presetEmail = 'koiramos.121902@gmail.com';
-          if (emailField && (!emailField.textContent || emailField.textContent.trim() === '')) {
-            emailField.textContent = presetEmail;
-            _saveUpdatePending();
-          }
-        }
-
-        // Wire save handlers so typing persists immediately
-        [emailField, firstNameField, lastNameField].filter(Boolean).forEach((f) => {
-          try {
-            f.addEventListener('input', _saveUpdatePending);
-            f.addEventListener('keyup', _saveUpdatePending);
-            f.addEventListener('blur', _saveUpdatePending);
-            f.addEventListener('paste', () => { window.setTimeout(_saveUpdatePending, 0); });
-          } catch (e) { /* ignore */ }
-        });
-      } catch (e) { /* ignore */ }
+        const email = (emailField?.textContent || '').trim();
+        const firstName = (firstNameField?.textContent || '').trim();
+        const lastName = (lastNameField?.textContent || '').trim();
+        const enabled = email.length > 0 || (firstName.length > 0 && lastName.length > 0);
+        btnSearch.style.opacity = enabled ? '1' : '0.45';
+        btnSearch.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        btnSearch.style.pointerEvents = enabled ? 'auto' : 'none';
+        btnSearch.dataset.enabled = enabled ? '1' : '0';
+      };
+      btnSearch.addEventListener('click', () => {
+        if (btnSearch.dataset.enabled !== '1') return;
+        unlockScroll();
+        const target = document.querySelector('.rectangle-parent');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      [
+        document.querySelector('.text-field .tfusedemail'),
+        document.querySelector('.text-field3 .tfusedemail'),
+        document.querySelector('.text-field5 .tfusedemail')
+      ].filter(Boolean).forEach((field) => {
+        field.addEventListener('input', updateSearchButtonState);
+        field.addEventListener('keyup', updateSearchButtonState);
+        field.addEventListener('blur', updateSearchButtonState);
+        field.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
+      });
+      updateSearchButtonState();
     }
-
-    updateSearchButtonState();
   }
 
   // quick scroll-to-frame button
