@@ -62,11 +62,32 @@ module.exports = async (req, res) => {
 
     // Relay status and headers
     res.status(fetchRes.status);
-    const ct = fetchRes.headers.get('content-type');
-    if (ct) res.setHeader('Content-Type', ct);
 
-    const text = await fetchRes.text();
-    res.send(text);
+    // Copy all headers from backend response, including Set-Cookie, Content-Disposition, etc.
+    const rawHeaders = fetchRes.headers.raw();
+    for (const headerName of Object.keys(rawHeaders)) {
+      if (headerName.toLowerCase() === 'transfer-encoding') continue;
+      if (headerName.toLowerCase() === 'connection') continue;
+      if (headerName.toLowerCase() === 'keep-alive') continue;
+      if (headerName.toLowerCase() === 'content-length') continue;
+      if (headerName.toLowerCase() === 'access-control-expose-headers') continue;
+
+      const headerValue = rawHeaders[headerName];
+      if (Array.isArray(headerValue)) {
+        res.setHeader(headerName, headerValue);
+      } else if (headerValue !== undefined) {
+        res.setHeader(headerName, headerValue);
+      }
+    }
+
+    // Ensure the browser can see cookies set by the backend through the proxy.
+    const setCookie = rawHeaders['set-cookie'];
+    if (setCookie) {
+      res.setHeader('Set-Cookie', setCookie);
+    }
+
+    const bodyBuffer = Buffer.from(await fetchRes.arrayBuffer());
+    res.send(bodyBuffer);
   } catch (err) {
     res.status(502).json({ ok: false, error: String(err) });
   }
