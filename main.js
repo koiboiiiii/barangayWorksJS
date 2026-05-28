@@ -248,6 +248,16 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     };
 
+    const scrollUpdateResultsIntoView = () => {
+      if (!isUpdatePage) return;
+      const target = document.querySelector('.rectangle-group') || updateMenuEl;
+      if (target && typeof target.scrollIntoView === 'function') {
+        window.setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 0);
+      }
+    };
+
     const persistUpdateSearch = () => {
       try {
         localStorage.setItem(updateSearchStorageKey, JSON.stringify({
@@ -304,6 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             renderUpdateResults([]);
           }
+          scrollUpdateResultsIntoView();
         })
         .catch(function() {
           window.alert('Could not reach server to search appointments');
