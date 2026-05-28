@@ -16,38 +16,94 @@ node -e "require('./controller/controller').startServer()"
 
 ---
 
-**Admin User Guide**
+**Barangay Worker (Admin) Guide**
 
-- **Login**: open `adminlogin.html`, enter admin credentials. Backend validates against admin store in `controller/` modules.
+- **Who this is for**: Barangay officials and staff who operate the dashboard to process forms, manage schedules, and respond to citizen requests. System Administrators create and assign login accounts to Barangay officials.
 
-- **Dashboard** (`admindashboard.html`): central hub to view dashboards, processes, schedules, users, and logs.
-  - **Create / Manage Process**: Use dashboard controls to create processes (title, description, owner). Processes are stored in `processesdb`.
-  - **Schedules**: Create schedules for a process (date/time, recurrence, location). Schedules are stored in `scheduledb`.
-  - **Forms**: View incoming form submissions, change status, and assign to processes.
-  - **Users & Hierarchy**: Add/edit admin users and define reporting relationships (use `adminusersquery` and `adminhierarchydb`).
-  - **Permissions**: Grant/revoke resource access via the permissions UI (`permissions.html`).
-  - **Logs**: View audit logs in `logs.html` to trace actions (view, create, update, delete).
+- **Login**: Open `adminlogin.html` and enter the credentials provided by your System Administrator. On first login change the temporary password immediately.
+
+- **Dashboard** (`admindashboard.html`): your control panel.
+  - **Create / Manage Process**: Use the dashboard to create processes (title, description, owner) and update status. Records are saved in `processesdb`.
+  - **Schedules**: Add or modify schedules (time, recurrence, location). Schedules are stored in `scheduledb`.
+  - **Forms**: Review submitted forms, update their status, add notes, and assign them to a process or staff member.
+  - **Users & Hierarchy**: View the list of Barangay officials and the reporting hierarchy. Only System Administrators can create or delete admin accounts; request account changes through them.
+  - **Permissions**: Check your access via `permissions.html`. Permission changes must be performed by a System Administrator.
+  - **Logs**: Use `logs.html` to audit actions (who performed what and when).
 
 - **Email Notifications**
-  - Config: update SMTP settings in `controller/mailer.js`.
-  - Behavior: processes and schedules may trigger email notifications; logs record email send attempts.
+  - The system sends emails for confirmations and notifications. SMTP settings are managed by the System Administrator in `controller/mailer.js`.
 
-- **Recommended Admin Practices**
-  - Use strong passwords and limit admin accounts. Ensure backend runs under HTTPS in production.
-  - Regularly export/backup data from the `controller/` modules before making structural changes.
+- **Recommended Practices for Barangay Workers**
+  - Immediately change any temporary passwords and use strong passwords.
+  - Report lost credentials to the System Administrator — they will revoke and reissue access.
+  - Follow barangay data handling policies when exporting or sharing data.
+
+**System Administrator — Account Assignment**
+
+- **Role**: System Administrators are responsible for provisioning admin accounts, assigning roles to Barangay officials, and configuring system-level settings (email, backups).
+
+- **Typical account assignment steps**:
+  1. Create a new admin user via the admin UI or backend module (`adminusersquery`).
+  2. Assign a role (`official`, `clerk`, `supervisor`) and a temporary password.
+  3. Place the user within the reporting hierarchy using `adminhierarchydb`.
+  4. Inform the official securely (do not send passwords via insecure email) and require a password change at first login.
+
+- **Security & operations notes for SysAdmins**
+  - Store credentials securely and rotate temporary passwords after issuance.
+  
+**System Administrator Onboarding Checklist**
+
+- Prepare environment
+  - Install Node.js on the server (recommended LTS). Ensure the server has firewall and HTTPS (TLS) configured.
+  - Create a secure storage location for secrets (environment variables, .env file outside webroot, or a secrets manager).
+
+- Initial system configuration
+  - Configure SMTP credentials in `controller/mailer.js` or via environment variables and test sending a confirmation email.
+  - Configure log rotation and ensure `logs` are written to a persistent location.
+
+- Accounts & roles
+  - Create initial admin accounts for key officials using `adminusersquery`.
+  - Assign roles and reporting hierarchy (`adminhierarchydb`).
+  - Generate temporary passwords and securely deliver them to recipients; require password change at first login.
+
+- Data & backup
+  - Take an initial backup/export of existing JS data modules.
+  - Schedule regular backups and document restore steps.
+
+- Validation & testing
+  - Verify admin login and role-based access on `admindashboard.html`.
+  - Submit a test form via `form.html` and confirm persistence, logging, and notification flows.
+  - Verify that email notifications are delivered and logged.
+
+- Documentation & handoff
+  - Document contact points for system support and emergency access procedures.
+  - Provide a short walkthrough to Barangay officials: how to login, change password, and report issues.
+
 
 ---
 
-**Citizen User Guide**
+**Citizen Guide (your steps)**
 
-- **Accessing Forms**: Open `form.html` (or links provided by the barangay site). Forms collect process-specific data.
+- **Who you are**: a resident or visitor submitting requests, complaints, or applications to the barangay.
 
-- **Submitting a Form**
-  1. Fill required fields and submit. The frontend sends the data to the backend persistence process.
-  2. On success the frontend shows `success.html` (or a success message). The backend persists the submission to the forms store and logs the event.
-  3. If configured, the system triggers email or other notifications to the responsible admin.
+- **Open the form**: Use the link provided by the barangay or open `form.html` from the site.
 
-- **Checking Status**: Citizens typically receive status updates via email or through an admin-facing portal; there is no dedicated citizen dashboard in this prototype.
+- **How to submit**:
+  1. Complete all required fields on the form. Be accurate with contact details so staff can follow up.
+  2. Review your entries, then click Submit.
+  3. After a successful submission you will see a confirmation page (`success.html`) and may receive an email confirmation if you provided an email address. Save any reference number shown.
+
+- **What happens next**:
+  - Barangay workers review your submission and may change its status (e.g., Received, In Progress, Completed).
+  - If action is required, an assigned official will handle it and you may be notified by email.
+
+- **If you have problems**:
+  - If required fields are missing the form will indicate them — fill all required fields and resubmit.
+  - If you see a server error, try again later and contact the barangay office with the error details and time.
+
+- **Privacy & tips**:
+  - Do not share passwords or personal login details.
+  - If you need status updates and there is no online tracking, contact the barangay office and provide your reference number.
 
 ---
 
