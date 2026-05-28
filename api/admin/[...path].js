@@ -62,20 +62,11 @@ module.exports = async (req, res) => {
 
     // Relay status and headers
     res.status(fetchRes.status);
+    const ct = fetchRes.headers.get('content-type');
+    if (ct) res.setHeader('Content-Type', ct);
 
-    // Copy all headers from backend response, including Set-Cookie, Content-Disposition, etc.
-    fetchRes.headers.forEach((value, headerName) => {
-      const lower = headerName.toLowerCase();
-      if (['transfer-encoding', 'connection', 'keep-alive', 'content-length', 'access-control-expose-headers'].includes(lower)) return;
-      if (lower === 'set-cookie') {
-        res.setHeader('Set-Cookie', value);
-        return;
-      }
-      res.setHeader(headerName, value);
-    });
-
-    const bodyBuffer = Buffer.from(await fetchRes.arrayBuffer());
-    res.send(bodyBuffer);
+    const text = await fetchRes.text();
+    res.send(text);
   } catch (err) {
     res.status(502).json({ ok: false, error: String(err) });
   }

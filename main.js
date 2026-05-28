@@ -2205,30 +2205,8 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch((err) => {
           console.warn('export error', err);
-          const msg = err && err.message ? String(err.message) : '';
-          if (/admin session required/i.test(msg) || /did not return a zip/i.test(msg) || /401|403/.test(msg)) {
-            tryAdminLoginAndDownload().catch((loginErr) => {
-              console.warn('login+download failed', loginErr);
-              window.alert('Export failed: ' + (loginErr && loginErr.message ? loginErr.message : msg || 'unauthorized'));
-            });
-            return;
-          }
-          window.alert('Export failed: ' + (msg || 'unknown'));
+          window.alert('Export failed: ' + (err && err.message ? err.message : 'unknown'));
         });
-
-    async function tryAdminLoginAndDownload() {
-      // The server requires a proper admin session or a valid export token.
-      // Prompt-based login was unreliable (401). Redirect the user to the
-      // admin login page so they can authenticate via the proper UI, then
-      // retry export manually after signing in.
-      window.alert('Export requires admin authentication. You will be redirected to the admin login page. After signing in, click Export again.');
-      try {
-        navigateWithFade('./adminlogin.html');
-      } catch (e) {
-        window.location.href = './adminlogin.html';
-      }
-      throw new Error('Redirected to admin login');
-    }
     }));
   }
 
