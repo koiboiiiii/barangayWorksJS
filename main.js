@@ -1031,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const reloadLogs = () => {
-      fetch(`${API_BASE}/api/processes`, { credentials: 'include' })
+      fetch(`${API_BASE}/api/processes`, { credentials: 'include', cache: 'no-store' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data && data.ok && Array.isArray(data.processes)) {
