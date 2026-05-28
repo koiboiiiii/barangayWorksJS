@@ -2205,8 +2205,54 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch((err) => {
           console.warn('export error', err);
-          window.alert('Export failed: ' + (err && err.message ? err.message : 'unknown'));
+          const msg = err && err.message ? String(err.message) : '';
+          if (/admin session required/i.test(msg) || /did not return a zip/i.test(msg) || /401|403/.test(msg)) {
+            tryAdminLoginAndDownload().catch((loginErr) => {
+              console.warn('login+download failed', loginErr);
+              window.alert('Export failed: ' + (loginErr && loginErr.message ? loginErr.message : msg || 'unauthorized'));
+            });
+            return;
+          }
+          window.alert('Export failed: ' + (msg || 'unknown'));
         });
+
+    async function tryAdminLoginAndDownload() {
+      const username = window.prompt('Admin username:');
+      if (!username) throw new Error('Username required');
+      const password = window.prompt('Admin password:');
+      if (!password) throw new Error('Password required');
+
+      const loginResp = await fetch(`${API_BASE}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: String(username), password: String(password) }),
+        credentials: 'include',
+      });
+      const loginJson = await loginResp.json().catch(() => ({}));
+      if (!loginResp.ok || !loginJson || !loginJson.exportToken) {
+        const errMsg = (loginJson && loginJson.error) ? loginJson.error : `Login failed: ${loginResp.status}`;
+        throw new Error(errMsg);
+      }
+
+      const token = String(loginJson.exportToken);
+      const resp = await fetch(`${API_BASE}/api/admin/export-archive?auth=${encodeURIComponent(token)}`, { credentials: 'include' });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        throw new Error(txt || `Export failed: ${resp.status}`);
+      }
+      const contentType = String(resp.headers.get('Content-Type') || '').toLowerCase();
+      if (!contentType.includes('application/zip') && !contentType.includes('application/octet-stream')) {
+        const txt = await resp.text().catch(() => '');
+        throw new Error('Server did not return ZIP: ' + (txt || contentType));
+      }
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const m = /filename="?([^";]+)"?/.exec(cd);
+      const filename = m ? m[1] : `barangayArchive-${new Date().toISOString().slice(0,10)}.zip`;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a);
+      a.click(); setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+    }
     }));
   }
 
