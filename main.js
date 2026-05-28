@@ -1330,6 +1330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // Persist selected calendar cell across refreshes so user selection doesn't vanish
     var _schedulePendingKey = 'bw_pending_schedule';
+    var _scheduleOverridesKey = 'bw_schedule_overrides';
     function _loadSchedulePending() {
       try {
         var raw = localStorage.getItem(_schedulePendingKey);
@@ -1347,6 +1348,32 @@ document.addEventListener('DOMContentLoaded', () => {
     function _clearSchedulePending() {
       try { localStorage.removeItem(_schedulePendingKey); } catch(e){}
     }
+    function _loadScheduleOverrides() {
+      try {
+        var raw = localStorage.getItem(_scheduleOverridesKey);
+        if (!raw) return {};
+        var obj = JSON.parse(raw);
+        if (obj && typeof obj === 'object') return obj;
+      } catch (e) { /* ignore */ }
+      return {};
+    }
+    function _saveScheduleOverrides(obj) {
+      try { localStorage.setItem(_scheduleOverridesKey, JSON.stringify(obj || {})); } catch(e){}
+    }
+    function _setScheduleOverride(date, isUnavailable) {
+      try {
+        var o = _loadScheduleOverrides();
+        if (!date) return;
+        if (isUnavailable === null || typeof isUnavailable === 'undefined') {
+          delete o[date];
+        } else {
+          o[date] = !!isUnavailable;
+        }
+        _saveScheduleOverrides(o);
+      } catch(e){}
+    }
+    // load overrides in memory
+    var _scheduleOverrides = _loadScheduleOverrides();
 
     // Periodically refresh unavailable dates so calendar stays in sync with server-side changes.
     var schedulesRefreshTimer = window.setInterval(loadUnavailableDates, 5000);
@@ -1437,13 +1464,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const selectedDate = selectedButton.dataset.date;
       if (selectedDate) {
+        // Set a local override immediately so UI persists while we save to server
+        _setScheduleOverride(selectedDate, selectedCellUnavailable);
+        _scheduleOverrides = _loadScheduleOverrides();
+        // Optimistically update local set so UI reflects change
         if (selectedCellUnavailable) unavailableDates.add(selectedDate);
         else unavailableDates.delete(selectedDate);
         saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
           if (!ok) {
-            window.alert('Could not save schedule change.');
+            window.alert('Could not save schedule change. It will be retried later.');
+            // keep override so visual state remains and can be retried later
           } else {
-            // refresh unavailable dates from server to ensure UI matches DB
+            // server saved; remove override and refresh local server state
+            _setScheduleOverride(selectedDate, null);
+            _scheduleOverrides = _loadScheduleOverrides();
+            // prefer refreshing server state to reconcile any other changes
             loadUnavailableDates();
           }
         });
@@ -1506,7 +1541,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             cell.style.cursor = 'pointer';
             cell.addEventListener('click', () => {
-          cell.addEventListener('click', () => {
+            cell.addEventListener('click', () => {
               if (selectedButton) clearCellSelection(selectedButton);
               selectedButton = cell;
               selectedCellUnavailable = cell.classList.contains('unavailable');
@@ -1516,6 +1551,8 @@ document.addEventListener('DOMContentLoaded', () => {
               updateBtnMarkState();
               // Persist the current selection so background refreshes don't clear it
               _saveSchedulePending(cell.dataset.date, selectedCellUnavailable);
+              // ensure there's no lingering override unless user marks
+              _setScheduleOverride(cell.dataset.date, _scheduleOverrides[cell.dataset.date]);
             });
           }
           row.appendChild(cell);
@@ -1530,9 +1567,9 @@ document.addEventListener('DOMContentLoaded', () => {
               if (cell && !cell.classList.contains('disabled')) {
                 if (selectedButton) clearCellSelection(selectedButton);
                 selectedButton = cell;
-                selectedCellUnavailable = !!pending.isUnavailable && cell.classList.contains('unavailable');
-                // If pending.isUnavailable differs from current class, prefer pending selection state visually
-                if (pending.isUnavailable) cell.classList.add('unavailable');
+                selectedCellUnavailable = !!pending.isUnavailable || !!_scheduleOverrides[pending.date];
+                // If pending.isUnavailable or override says unavailable, mark visually
+                if (pending.isUnavailable || _scheduleOverrides[pending.date]) cell.classList.add('unavailable');
                 applySelectedCellState(cell);
                 calendarRoot.dataset.selected = cell.dataset.date;
                 setBtnSuccessEnabled(true);
