@@ -2271,7 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
               if (data && data.ok) {
                 showUploadToast();
-                try { localStorage.removeItem('bw_pending_imports'); updateImportBadge(); } catch (e) {}
+                try { localStorage.removeItem('bw_pending_imports'); } catch (e) {}
                 window.alert('Archive imported successfully');
               } else {
                 window.alert('Import failed: ' + (data && data.error ? data.error : 'unknown'));
@@ -2292,7 +2292,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const parsed = parseCsv(text);
           // persist pending imports so UI/polling won't overwrite
           localStorage.setItem('bw_pending_imports', JSON.stringify(parsed));
-          updateImportBadge();
           showUploadToast();
         } catch (e) { console.warn('Failed to parse CSV', e); }
       };
@@ -2303,32 +2302,6 @@ document.addEventListener('DOMContentLoaded', () => {
       csvInput.value = '';
       csvInput.click();
     }));
-    
-    // badge to show pending imports count
-    const importBadge = document.createElement('span');
-    importBadge.className = 'import-badge';
-    importBadge.style.marginLeft = '8px';
-    importBadge.style.fontSize = '12px';
-    importBadge.style.color = '#fff';
-    importBadge.style.background = '#d9534f';
-    importBadge.style.padding = '2px 6px';
-    importBadge.style.borderRadius = '12px';
-    importBadge.style.display = 'inline-block';
-    importBadge.style.verticalAlign = 'middle';
-    importBadge.style.minWidth = '20px';
-    importBadge.style.textAlign = 'center';
-    importBadge.textContent = '';
-    btnImport.appendChild(importBadge);
-
-    const updateImportBadge = () => {
-      try {
-        const raw = localStorage.getItem('bw_pending_imports');
-        const arr = raw ? JSON.parse(raw) : [];
-        const n = Array.isArray(arr) ? arr.length : 0;
-        importBadge.textContent = n > 0 ? String(n) : '';
-      } catch (e) { importBadge.textContent = ''; }
-    };
-    updateImportBadge();
   }
 
   // Helpers for CSV handling and download
