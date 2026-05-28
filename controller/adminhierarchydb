@@ -87,21 +87,21 @@ SELECT @SupervisorRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Supervisor';
 
--- Supervisor permissions: only insert if no permissions exist yet for this role
-IF NOT EXISTS (
-	SELECT 1
-	FROM dbo.admin_role_permissions
-	WHERE role_id = @SupervisorRoleId
-)
-BEGIN
-	INSERT INTO dbo.admin_role_permissions (
-		role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
-		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport
-	)
-	VALUES (
-		@SupervisorRoleId, 1, 1, 1, 1, 1, 1, 1, 1
-	);
-END;
+-- Supervisor permissions: always overwrite (seed manages these, not the import)
+MERGE dbo.admin_role_permissions AS target
+USING (
+	SELECT @SupervisorRoleId AS role_id, 1 AS can_click_btnmanageaccess, 1 AS can_click_btnschedules, 1 AS can_click_btnlogs,
+		1 AS can_click_btndbconfig, 1 AS can_click_btnpermission, 1 AS can_click_btnnewuser, 1 AS can_click_btnimport, 1 AS can_click_btnexport
+) AS src
+ON target.role_id = src.role_id
+WHEN MATCHED THEN UPDATE SET
+	can_click_btnmanageaccess = 1, can_click_btnschedules = 1, can_click_btnlogs = 1,
+	can_click_btndbconfig = 1, can_click_btnpermission = 1, can_click_btnnewuser = 1,
+	can_click_btnimport = 1, can_click_btnexport = 1, updated_at = SYSUTCDATETIME()
+WHEN NOT MATCHED THEN
+	INSERT (role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
+		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport)
+	VALUES (@SupervisorRoleId, 1, 1, 1, 1, 1, 1, 1, 1);
 
 -- Ensure Manager role exists
 IF NOT EXISTS (
@@ -119,21 +119,21 @@ SELECT @ManagerRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Manager';
 
--- Manager permissions: only insert if no permissions exist yet for this role
-IF NOT EXISTS (
-	SELECT 1
-	FROM dbo.admin_role_permissions
-	WHERE role_id = @ManagerRoleId
-)
-BEGIN
-	INSERT INTO dbo.admin_role_permissions (
-		role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
-		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport
-	)
-	VALUES (
-		@ManagerRoleId, 1, 1, 1, 1, 0, 1, 0, 0
-	);
-END;
+-- Manager permissions: always overwrite
+MERGE dbo.admin_role_permissions AS target
+USING (
+	SELECT @ManagerRoleId AS role_id, 1 AS can_click_btnmanageaccess, 1 AS can_click_btnschedules, 1 AS can_click_btnlogs,
+		1 AS can_click_btndbconfig, 0 AS can_click_btnpermission, 1 AS can_click_btnnewuser, 0 AS can_click_btnimport, 0 AS can_click_btnexport
+) AS src
+ON target.role_id = src.role_id
+WHEN MATCHED THEN UPDATE SET
+	can_click_btnmanageaccess = 1, can_click_btnschedules = 1, can_click_btnlogs = 1,
+	can_click_btndbconfig = 1, can_click_btnpermission = 0, can_click_btnnewuser = 1,
+	can_click_btnimport = 0, can_click_btnexport = 0, updated_at = SYSUTCDATETIME()
+WHEN NOT MATCHED THEN
+	INSERT (role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
+		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport)
+	VALUES (@ManagerRoleId, 1, 1, 1, 1, 0, 1, 0, 0);
 
 -- Ensure Officer role exists
 IF NOT EXISTS (
@@ -151,52 +151,51 @@ SELECT @OfficerRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Officer';
 
--- Officer permissions: only insert if no permissions exist yet for this role
-IF NOT EXISTS (
-	SELECT 1
-	FROM dbo.admin_role_permissions
-	WHERE role_id = @OfficerRoleId
-)
-BEGIN
-	INSERT INTO dbo.admin_role_permissions (
-		role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
-		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport
-	)
-	VALUES (
-		@OfficerRoleId, 0, 1, 1, 0, 0, 0, 0, 0
-	);
-END;
+-- Officer permissions: always overwrite
+MERGE dbo.admin_role_permissions AS target
+USING (
+	SELECT @OfficerRoleId AS role_id, 0 AS can_click_btnmanageaccess, 1 AS can_click_btnschedules, 1 AS can_click_btnlogs,
+		0 AS can_click_btndbconfig, 0 AS can_click_btnpermission, 0 AS can_click_btnnewuser, 0 AS can_click_btnimport, 0 AS can_click_btnexport
+) AS src
+ON target.role_id = src.role_id
+WHEN MATCHED THEN UPDATE SET
+	can_click_btnmanageaccess = 0, can_click_btnschedules = 1, can_click_btnlogs = 1,
+	can_click_btndbconfig = 0, can_click_btnpermission = 0, can_click_btnnewuser = 0,
+	can_click_btnimport = 0, can_click_btnexport = 0, updated_at = SYSUTCDATETIME()
+WHEN NOT MATCHED THEN
+	INSERT (role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
+		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport)
+	VALUES (@OfficerRoleId, 0, 1, 1, 0, 0, 0, 0, 0);
 
--- Ensure the built-in admin account exists — only creates if missing, does NOT overwrite
--- imported role assignments or display name
+-- Ensure the built-in admin account exists and always uses latest defaults
 DECLARE @AdminRoleId INT;
 SELECT @AdminRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Supervisor';
 
-IF NOT EXISTS (
+IF EXISTS (
 	SELECT 1
 	FROM dbo.admin_users
 	WHERE username = 'admin'
 )
 BEGIN
+	UPDATE dbo.admin_users
+	SET password_plaintext = 'b4r4ng4y!',
+		display_name = 'Administrator',
+		email = NULL,
+		role_id = @AdminRoleId,
+		barangay_id = NULL,
+		is_active = 1,
+		updated_at = SYSUTCDATETIME()
+	WHERE username = 'admin';
+END
+ELSE
+BEGIN
 	INSERT INTO dbo.admin_users (
-		username,
-		password_plaintext,
-		display_name,
-		email,
-		role_id,
-		barangay_id,
-		is_active
+		username, password_plaintext, display_name, email, role_id, barangay_id, is_active
 	)
 	VALUES (
-		'admin',
-		'b4r4ng4y!',
-		'Administrator',
-		NULL,
-		@AdminRoleId,
-		NULL,
-		1
+		'admin', 'b4r4ng4y!', 'Administrator', NULL, @AdminRoleId, NULL, 1
 	);
 END;
 
