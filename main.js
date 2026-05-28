@@ -206,9 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
         serialLabel.className = 'lblserial';
         serialLabel.textContent = row.serial_number || '';
 
-        // determine done/ongoing state early so click handler can reference it
-        const isDone = !!(row.selected_date && formatSelectedDate(row.selected_date) < getTodayIsoDate());
-
         const trashIcon = document.createElement('img');
         trashIcon.className = 'btntrash-icon';
         trashIcon.src = './assets/trash.png';
@@ -216,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
         trashIcon.style.cursor = 'pointer';
         trashIcon.addEventListener('click', function(e) {
           // Only allow deletion for items that are Done
-          if (!isDone) {
+          if (typeof isDone === 'boolean' && !isDone) {
             e.stopPropagation();
             return;
           }
@@ -248,17 +245,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const isDone = !!(row.selected_date && formatSelectedDate(row.selected_date) < getTodayIsoDate());
         statusIcon.alt = isDone ? 'Done' : 'Ongoing';
 
-        // enable/disable trash based on done state and add tooltip when disabled
+        // enable/disable trash based on done state
         if (!isDone) {
           trashIcon.style.pointerEvents = 'none';
           trashIcon.style.opacity = '0.5';
-          trashIcon.title = 'Contact the barangay admin to cancel the appointment';
-          trashIcon.setAttribute('aria-disabled', 'true');
         } else {
           trashIcon.style.pointerEvents = 'auto';
           trashIcon.style.opacity = '1';
-          trashIcon.title = '';
-          trashIcon.removeAttribute('aria-disabled');
         }
 
         resultRow.appendChild(statusIcon);
