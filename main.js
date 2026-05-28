@@ -1560,6 +1560,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('bw.admin.username', payload.admin && payload.admin.username ? payload.admin.username : username);
             sessionStorage.setItem('bw.admin.role', payload.admin && payload.admin.role ? payload.admin.role : '');
             sessionStorage.setItem('bw.admin.permissions', JSON.stringify(payload.admin && payload.admin.permissions ? payload.admin.permissions : {}));
+            // Store export token for API calls that bypass the Vercel proxy (e.g. import-archive)
+            if (payload.exportToken) sessionStorage.setItem('bw.export_token', payload.exportToken);
           } catch (e) { /* ignore */ }
 
           window.location.replace('./admindashboard.html');
@@ -2245,7 +2247,18 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = function(evt) {
           try {
             const arrayBuffer = evt.target.result;
-            // Send via same-origin proxy which now forwards ngrok, Set-Cookie and binary correctly
+            // Send directly to the ngrok backend, bypassing Vercel proxy for binary POST body
+            var importUrl = (function(){
+              try {
+                var meta = document.querySelector('meta[name="next-public-api-url"]');
+                if (meta && meta.content) return meta.content + '/api/admin/import-archive';
+              } catch (e) {}
+              try {
+                if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE + '/api/admin/import-archive';
+              } catch (e) {}
+              return API_BASE + '/api/admin/import-archive';
+            })();
+            // Get export token from login response for auth (backup if session cookie not set for ngrok domain)
             var exportToken = '';
             try { exportToken = sessionStorage.getItem('bw.export_token') || ''; } catch (e) {}
             var headers = {
@@ -2253,7 +2266,8 @@ document.addEventListener('DOMContentLoaded', () => {
               'X-File-Name': file.name,
             };
             if (exportToken) headers['X-Admin-Token'] = exportToken;
-            fetch(`${API_BASE}/api/admin/import-archive`, {
+            console.log('[import] sending to:', importUrl);
+            fetch(importUrl, {
               method: 'POST',
               credentials: 'include',
               headers: headers,
@@ -2263,7 +2277,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
               if (data && data.ok) {
                 showUploadToast();
-                // clear any client-side pending imports since DB restored
                 try { localStorage.removeItem('bw_pending_imports'); updateImportBadge(); } catch (e) {}
                 window.alert('Archive imported successfully');
               } else {
