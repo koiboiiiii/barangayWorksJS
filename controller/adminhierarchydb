@@ -87,54 +87,21 @@ SELECT @SupervisorRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Supervisor';
 
--- Supervisor can click all admin dashboard buttons
-MERGE dbo.admin_role_permissions AS target
-USING (
-	SELECT
-		@SupervisorRoleId AS role_id,
-		CAST(1 AS BIT) AS can_click_btnmanageaccess,
-		CAST(1 AS BIT) AS can_click_btnschedules,
-		CAST(1 AS BIT) AS can_click_btnlogs,
-		CAST(1 AS BIT) AS can_click_btndbconfig,
-		CAST(1 AS BIT) AS can_click_btnpermission,
-		CAST(1 AS BIT) AS can_click_btnnewuser,
-		CAST(1 AS BIT) AS can_click_btnimport,
-		CAST(1 AS BIT) AS can_click_btnexport
-) AS src
-ON target.role_id = src.role_id
-WHEN MATCHED THEN UPDATE SET
-	can_click_btnmanageaccess = src.can_click_btnmanageaccess,
-	can_click_btnschedules = src.can_click_btnschedules,
-	can_click_btnlogs = src.can_click_btnlogs,
-	can_click_btndbconfig = src.can_click_btndbconfig,
-	can_click_btnpermission = src.can_click_btnpermission,
-	can_click_btnnewuser = src.can_click_btnnewuser,
-	can_click_btnimport = src.can_click_btnimport,
-	can_click_btnexport = src.can_click_btnexport,
-	updated_at = SYSUTCDATETIME()
-WHEN NOT MATCHED THEN
-	INSERT (
-		role_id,
-		can_click_btnmanageaccess,
-		can_click_btnschedules,
-		can_click_btnlogs,
-		can_click_btndbconfig,
-		can_click_btnpermission,
-		can_click_btnnewuser,
-		can_click_btnimport,
-		can_click_btnexport
+-- Supervisor permissions: only insert if no permissions exist yet for this role
+IF NOT EXISTS (
+	SELECT 1
+	FROM dbo.admin_role_permissions
+	WHERE role_id = @SupervisorRoleId
+)
+BEGIN
+	INSERT INTO dbo.admin_role_permissions (
+		role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
+		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport
 	)
 	VALUES (
-		src.role_id,
-		src.can_click_btnmanageaccess,
-		src.can_click_btnschedules,
-		src.can_click_btnlogs,
-		src.can_click_btndbconfig,
-		src.can_click_btnpermission,
-		src.can_click_btnnewuser,
-		src.can_click_btnimport,
-		src.can_click_btnexport
+		@SupervisorRoleId, 1, 1, 1, 1, 1, 1, 1, 1
 	);
+END;
 
 -- Ensure Manager role exists
 IF NOT EXISTS (
@@ -152,54 +119,21 @@ SELECT @ManagerRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Manager';
 
--- Manager has NO access to btnpermission, btnimport, or btnexport
-MERGE dbo.admin_role_permissions AS target
-USING (
-	SELECT
-		@ManagerRoleId AS role_id,
-		CAST(1 AS BIT) AS can_click_btnmanageaccess,
-		CAST(1 AS BIT) AS can_click_btnschedules,
-		CAST(1 AS BIT) AS can_click_btnlogs,
-		CAST(1 AS BIT) AS can_click_btndbconfig,
-		CAST(0 AS BIT) AS can_click_btnpermission,
-		CAST(1 AS BIT) AS can_click_btnnewuser,
-		CAST(0 AS BIT) AS can_click_btnimport,
-		CAST(0 AS BIT) AS can_click_btnexport
-) AS src
-ON target.role_id = src.role_id
-WHEN MATCHED THEN UPDATE SET
-	can_click_btnmanageaccess = src.can_click_btnmanageaccess,
-	can_click_btnschedules = src.can_click_btnschedules,
-	can_click_btnlogs = src.can_click_btnlogs,
-	can_click_btndbconfig = src.can_click_btndbconfig,
-	can_click_btnpermission = src.can_click_btnpermission,
-	can_click_btnnewuser = src.can_click_btnnewuser,
-	can_click_btnimport = src.can_click_btnimport,
-	can_click_btnexport = src.can_click_btnexport,
-	updated_at = SYSUTCDATETIME()
-WHEN NOT MATCHED THEN
-	INSERT (
-		role_id,
-		can_click_btnmanageaccess,
-		can_click_btnschedules,
-		can_click_btnlogs,
-		can_click_btndbconfig,
-		can_click_btnpermission,
-		can_click_btnnewuser,
-		can_click_btnimport,
-		can_click_btnexport
+-- Manager permissions: only insert if no permissions exist yet for this role
+IF NOT EXISTS (
+	SELECT 1
+	FROM dbo.admin_role_permissions
+	WHERE role_id = @ManagerRoleId
+)
+BEGIN
+	INSERT INTO dbo.admin_role_permissions (
+		role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
+		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport
 	)
 	VALUES (
-		src.role_id,
-		src.can_click_btnmanageaccess,
-		src.can_click_btnschedules,
-		src.can_click_btnlogs,
-		src.can_click_btndbconfig,
-		src.can_click_btnpermission,
-		src.can_click_btnnewuser,
-		src.can_click_btnimport,
-		src.can_click_btnexport
+		@ManagerRoleId, 1, 1, 1, 1, 0, 1, 0, 0
 	);
+END;
 
 -- Ensure Officer role exists
 IF NOT EXISTS (
@@ -217,54 +151,21 @@ SELECT @OfficerRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Officer';
 
--- Officer can only click btnschedules and btnlogs
-MERGE dbo.admin_role_permissions AS target
-USING (
-	SELECT
-		@OfficerRoleId AS role_id,
-		CAST(0 AS BIT) AS can_click_btnmanageaccess,
-		CAST(1 AS BIT) AS can_click_btnschedules,
-		CAST(1 AS BIT) AS can_click_btnlogs,
-		CAST(0 AS BIT) AS can_click_btndbconfig,
-		CAST(0 AS BIT) AS can_click_btnpermission,
-		CAST(0 AS BIT) AS can_click_btnnewuser,
-		CAST(0 AS BIT) AS can_click_btnimport,
-		CAST(0 AS BIT) AS can_click_btnexport
-) AS src
-ON target.role_id = src.role_id
-WHEN MATCHED THEN UPDATE SET
-	can_click_btnmanageaccess = src.can_click_btnmanageaccess,
-	can_click_btnschedules = src.can_click_btnschedules,
-	can_click_btnlogs = src.can_click_btnlogs,
-	can_click_btndbconfig = src.can_click_btndbconfig,
-	can_click_btnpermission = src.can_click_btnpermission,
-	can_click_btnnewuser = src.can_click_btnnewuser,
-	can_click_btnimport = src.can_click_btnimport,
-	can_click_btnexport = src.can_click_btnexport,
-	updated_at = SYSUTCDATETIME()
-WHEN NOT MATCHED THEN
-	INSERT (
-		role_id,
-		can_click_btnmanageaccess,
-		can_click_btnschedules,
-		can_click_btnlogs,
-		can_click_btndbconfig,
-		can_click_btnpermission,
-		can_click_btnnewuser,
-		can_click_btnimport,
-		can_click_btnexport
+-- Officer permissions: only insert if no permissions exist yet for this role
+IF NOT EXISTS (
+	SELECT 1
+	FROM dbo.admin_role_permissions
+	WHERE role_id = @OfficerRoleId
+)
+BEGIN
+	INSERT INTO dbo.admin_role_permissions (
+		role_id, can_click_btnmanageaccess, can_click_btnschedules, can_click_btnlogs,
+		can_click_btndbconfig, can_click_btnpermission, can_click_btnnewuser, can_click_btnimport, can_click_btnexport
 	)
 	VALUES (
-		src.role_id,
-		src.can_click_btnmanageaccess,
-		src.can_click_btnschedules,
-		src.can_click_btnlogs,
-		src.can_click_btndbconfig,
-		src.can_click_btnpermission,
-		src.can_click_btnnewuser,
-		src.can_click_btnimport,
-		src.can_click_btnexport
+		@OfficerRoleId, 0, 1, 1, 0, 0, 0, 0, 0
 	);
+END;
 
 -- Ensure the built-in admin account exists and uses the Supervisor role
 DECLARE @AdminRoleId INT;
