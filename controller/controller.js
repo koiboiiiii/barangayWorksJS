@@ -479,8 +479,8 @@ async function authenticateAdmin(username, password) {
 	// Only seed admin hierarchy if the admin user doesn't exist yet (first-time setup).
 	// This prevents the seed from overwriting imported role/permissions on every login.
 	try {
-		var pool = await getPool();
-		var checkResult = await pool.request().query(`SELECT COUNT(*) AS cnt FROM dbo.admin_users WHERE username = 'admin'`);
+		var checkPool = await getPool();
+		var checkResult = await checkPool.request().query(`SELECT COUNT(*) AS cnt FROM dbo.admin_users WHERE username = 'admin'`);
 		if (!checkResult.recordset || !checkResult.recordset[0] || checkResult.recordset[0].cnt === 0) {
 			await runAdminHierarchySeed();
 		}
