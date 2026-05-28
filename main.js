@@ -1374,6 +1374,11 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
         });
+        // record response for debugging
+        try {
+          var _log = JSON.parse(localStorage.getItem('bw_schedule_save_log')||'[]');
+        } catch(e){ var _log = []; }
+        try { _log.push({ ts: Date.now(), date: scheduleDate, status: resp.status, ok: !!resp.ok }); if (_log.length>50) _log = _log.slice(_log.length-50); localStorage.setItem('bw_schedule_save_log', JSON.stringify(_log)); } catch(e){}
         if (!resp || !resp.ok) {
           return false;
         }
@@ -1381,6 +1386,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try { delete pendingSchedules[scheduleDate]; _savePendingSchedules(); } catch (e) {}
         return true;
       } catch (error) {
+        try {
+          var _log = JSON.parse(localStorage.getItem('bw_schedule_save_log')||'[]');
+        } catch(e){ var _log = []; }
+        try { _log.push({ ts: Date.now(), date: scheduleDate, error: String(error) }); if (_log.length>50) _log = _log.slice(_log.length-50); localStorage.setItem('bw_schedule_save_log', JSON.stringify(_log)); } catch(e){}
         return false;
       }
     };
@@ -1452,16 +1461,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (selectedDate) {
         if (selectedCellUnavailable) unavailableDates.add(selectedDate);
         else unavailableDates.delete(selectedDate);
+      if (selectedDate) {
         // Record pending change locally so periodic refreshes don't stomp the UI
         try { pendingSchedules[selectedDate] = !!selectedCellUnavailable; _savePendingSchedules(); } catch (e) {}
-        saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
-          if (!ok) {
-            window.alert('Could not save schedule change.');
-          } else {
-            // refresh unavailable dates from server to ensure UI matches DB
-            loadUnavailableDates();
-          }
-        });
+        // Try saving with retries before alerting
+        var _attemptSave = function(retriesLeft) {
+          saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
+            if (ok) {
+              loadUnavailableDates();
+            } else if (retriesLeft > 0) {
+              setTimeout(function(){ _attemptSave(retriesLeft - 1); }, 1000);
+            } else {
+              window.alert('Could not save schedule change.');
+            }
+          }).catch(function(){
+            if (retriesLeft > 0) setTimeout(function(){ _attemptSave(retriesLeft - 1); }, 1000);
+            else window.alert('Could not save schedule change.');
+          });
+        };
+        _attemptSave(2);
       }
     };
 
