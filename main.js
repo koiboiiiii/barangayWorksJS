@@ -736,9 +736,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
         // Call backend to delete user
         fetch(`${API_BASE}/api/admin/user/${encodeURIComponent(username)}`, {
-          method: 'DELETE'
-        , credentials: 'include' })
-        .then(function(r) { return r.json().catch(function(){ return { ok: false }; }); })
+          method: 'DELETE',
+          credentials: 'include' })
+        .then(async function(r) {
+          var text = await r.text().catch(function(){ return ''; });
+          try {
+            return JSON.parse(text);
+          } catch(e) {
+            console.warn('[delete user] non-json response:', text.slice(0, 200));
+            return { ok: false, error: 'Server returned: ' + r.status + ' ' + text.slice(0, 100) };
+          }
+        })
         .then(function(data) {
           if (data && data.ok) {
             // remove from local list and re-render
@@ -753,8 +761,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Failed to delete user: ' + (data && data.error ? data.error : 'unknown'));
           }
         })
-        .catch(function() {
-          alert('Could not reach server to delete user');
+        .catch(function(err) {
+          alert('Could not reach server to delete user: ' + (err && err.message ? err.message : ''));
         });
       });
       floatDropdown.appendChild(delOpt);
