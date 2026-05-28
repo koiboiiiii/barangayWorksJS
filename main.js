@@ -2241,28 +2241,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
       const isZip = isZipUpload(file.name, file.type);
       if (isZip) {
-        // Upload zip to server import endpoint
-        // Use the original API_BASE (ngrok URL) directly instead of going through Vercel proxy
-        // to avoid any binary body mangling or size limits in the serverless function
         const reader = new FileReader();
         reader.onload = function(evt) {
           try {
             const arrayBuffer = evt.target.result;
-            var importApiBase = (function(){
-              try {
-                if (typeof window !== 'undefined' && window.BW_API_BASE) return window.BW_API_BASE;
-                var meta = document.querySelector('meta[name="next-public-api-url"]');
-                if (meta && meta.content) return meta.content;
-              } catch (e) {}
-              return API_BASE;
-            })();
-            fetch(importApiBase + '/api/admin/import-archive', {
+            // Send via same-origin proxy which now forwards ngrok, Set-Cookie and binary correctly
+            var exportToken = '';
+            try { exportToken = sessionStorage.getItem('bw.export_token') || ''; } catch (e) {}
+            var headers = {
+              'Content-Type': 'application/zip',
+              'X-File-Name': file.name,
+            };
+            if (exportToken) headers['X-Admin-Token'] = exportToken;
+            fetch(`${API_BASE}/api/admin/import-archive`, {
               method: 'POST',
               credentials: 'include',
-              headers: {
-                'Content-Type': 'application/zip',
-                'X-File-Name': file.name,
-              },
+              headers: headers,
               body: arrayBuffer,
             })
             .then(r => r.json().catch(() => ({ ok: false, error: 'Invalid response' })))
