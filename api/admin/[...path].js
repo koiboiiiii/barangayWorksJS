@@ -64,27 +64,15 @@ module.exports = async (req, res) => {
     res.status(fetchRes.status);
 
     // Copy all headers from backend response, including Set-Cookie, Content-Disposition, etc.
-    const rawHeaders = fetchRes.headers.raw();
-    for (const headerName of Object.keys(rawHeaders)) {
-      if (headerName.toLowerCase() === 'transfer-encoding') continue;
-      if (headerName.toLowerCase() === 'connection') continue;
-      if (headerName.toLowerCase() === 'keep-alive') continue;
-      if (headerName.toLowerCase() === 'content-length') continue;
-      if (headerName.toLowerCase() === 'access-control-expose-headers') continue;
-
-      const headerValue = rawHeaders[headerName];
-      if (Array.isArray(headerValue)) {
-        res.setHeader(headerName, headerValue);
-      } else if (headerValue !== undefined) {
-        res.setHeader(headerName, headerValue);
+    fetchRes.headers.forEach((value, headerName) => {
+      const lower = headerName.toLowerCase();
+      if (['transfer-encoding', 'connection', 'keep-alive', 'content-length', 'access-control-expose-headers'].includes(lower)) return;
+      if (lower === 'set-cookie') {
+        res.setHeader('Set-Cookie', value);
+        return;
       }
-    }
-
-    // Ensure the browser can see cookies set by the backend through the proxy.
-    const setCookie = rawHeaders['set-cookie'];
-    if (setCookie) {
-      res.setHeader('Set-Cookie', setCookie);
-    }
+      res.setHeader(headerName, value);
+    });
 
     const bodyBuffer = Buffer.from(await fetchRes.arrayBuffer());
     res.send(bodyBuffer);
