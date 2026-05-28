@@ -1322,12 +1322,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
         }
+        // Apply any locally pending schedule changes so the UI reflects user's
+        // in-progress edits until they are confirmed by the server.
+        try {
+          var _pendingSchedulesRaw = localStorage.getItem('bw_pending_schedules');
+          if (_pendingSchedulesRaw) {
+            var _ps = JSON.parse(_pendingSchedulesRaw || '{}');
+            if (_ps && typeof _ps === 'object') {
+              Object.keys(_ps).forEach(function(d) {
+                if (_ps[d]) unavailableDates.add(d);
+                else unavailableDates.delete(d);
+              });
+            }
+          }
+        } catch (e) { /* ignore storage errors */ }
       } catch (error) {
         unavailableDates.clear();
       } finally {
         renderCalendar(viewDate);
       }
     };
+
+    // Pending local schedule edits (date -> boolean is_unavailable)
+    var pendingSchedules = {};
+    function _loadPendingSchedules() {
+      try {
+        var raw = localStorage.getItem('bw_pending_schedules');
+        if (raw) pendingSchedules = JSON.parse(raw || '{}') || {};
+      } catch (e) { pendingSchedules = {}; }
+    }
+    function _savePendingSchedules() {
+      try { localStorage.setItem('bw_pending_schedules', JSON.stringify(pendingSchedules || {})); } catch (e) {}
+    }
+    _loadPendingSchedules();
 
     // Periodically refresh unavailable dates so calendar stays in sync with server-side changes.
     var schedulesRefreshTimer = window.setInterval(loadUnavailableDates, 5000);
@@ -1347,6 +1374,8 @@ document.addEventListener('DOMContentLoaded', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
         });
+        // On success, clear any pending override for this date
+        try { delete pendingSchedules[scheduleDate]; _savePendingSchedules(); } catch (e) {}
         return true;
       } catch (error) {
         return false;
@@ -1420,6 +1449,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (selectedDate) {
         if (selectedCellUnavailable) unavailableDates.add(selectedDate);
         else unavailableDates.delete(selectedDate);
+        // Record pending change locally so periodic refreshes don't stomp the UI
+        try { pendingSchedules[selectedDate] = !!selectedCellUnavailable; _savePendingSchedules(); } catch (e) {}
         saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
           if (!ok) {
             window.alert('Could not save schedule change.');
@@ -1439,6 +1470,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderCalendar(date) {
+      // Try to restore selection across refreshes if possible
+      var preservedSelectedDate = (calendarRoot && calendarRoot.dataset && calendarRoot.dataset.selected) ? calendarRoot.dataset.selected : (selectedButton && selectedButton.dataset ? selectedButton.dataset.date : null);
       selectedButton = null;
       selectedCellUnavailable = false;
       if (calendarRoot && calendarRoot.dataset) delete calendarRoot.dataset.selected;
@@ -1500,6 +1533,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         tbodyEl.appendChild(row);
       }
+        // After building, restore previous selection if it still exists in the current view
+        try {
+          if (preservedSelectedDate) {
+            var restored = tbodyEl.querySelector(`[data-date="${preservedSelectedDate}"]`);
+            if (restored) {
+              if (selectedButton) clearCellSelection(selectedButton);
+              selectedButton = restored;
+              selectedCellUnavailable = restored.classList.contains('unavailable');
+              applySelectedCellState(restored);
+              calendarRoot.dataset.selected = preservedSelectedDate;
+              setBtnSuccessEnabled(true);
+              updateBtnMarkState();
+            }
+          }
+        } catch (e) { /* ignore restore errors */ }
     }
 
     if (prevIconBtn) prevIconBtn.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth()-1); renderCalendar(viewDate); });
