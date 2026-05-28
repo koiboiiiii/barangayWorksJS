@@ -238,11 +238,11 @@ document.addEventListener('DOMContentLoaded', () => {
         statusIcon.src = getStatusIconSrc(row.selected_date);
         statusIcon.alt = formatSelectedDate(row.selected_date) < getTodayIsoDate() ? 'Done' : 'Ongoing';
 
-        resultRow.appendChild(serviceLabel);
-        resultRow.appendChild(dateLabel);
-        resultRow.appendChild(serialLabel);
-        resultRow.appendChild(trashIcon);
         resultRow.appendChild(statusIcon);
+        resultRow.appendChild(serviceLabel);
+        resultRow.appendChild(serialLabel);
+        resultRow.appendChild(dateLabel);
+        resultRow.appendChild(trashIcon);
 
         updateMenuEl.appendChild(resultRow);
       });
