@@ -825,6 +825,7 @@ function registerAdminRoutes(app) {
 
 	app.post('/api/admin/import-archive', express.raw({ type: ['application/zip', 'application/octet-stream'], limit: '50mb' }), async (req, res) => {
 		try {
+			console.log('[import] received import request, body type:', typeof req.body, 'isBuffer:', Buffer.isBuffer(req.body), 'length:', req.body ? req.body.length : 0);
 			const authHeader = String(req.headers.authorization || '');
 			const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
 			const importToken = bearerToken || String(req.headers['x-admin-token'] || '').trim();
@@ -856,10 +857,13 @@ function registerAdminRoutes(app) {
 
 			const zip = new AdmZip(req.body);
 			const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
+			console.log('[import] zip entries:', entries.map(e => e.entryName));
+
 			const expectedMap = buildArchiveExpectation();
 			const expectedNames = Object.keys(expectedMap).sort();
 			const actualFiles = entries.map((entry) => normalizeArchiveName(entry.entryName)).filter(Boolean);
 			const actualBasenames = actualFiles.map((fileName) => path.posix.basename(fileName)).sort();
+			console.log('[import] expected files:', expectedNames, 'actual basenames:', actualBasenames);
 			const hasExactSet = expectedNames.length === actualBasenames.length && expectedNames.every((name, index) => name === actualBasenames[index]);
 			if (!hasExactSet) {
 				res.status(400).json({ ok: false, error: `Zip must contain exactly: ${expectedNames.join(', ')}` });
@@ -881,21 +885,26 @@ function registerAdminRoutes(app) {
 
 			const pool = await getPool();
 
-			// Validate ALL tables BEFORE any deletion — fail fast to protect the database
+			console.log('[import] validation starting...');
 			await validateAllTablesBeforeImport(pool, uploadName, expectedMap, csvTexts);
+			console.log('[import] validation passed');
 
 			// All validations passed, begin transactional restore
 			const transaction = new sql.Transaction(pool);
 			await transaction.begin();
+			console.log('[import] transaction begun');
 
 			try {
-				await transaction.request().query(`
+				const deleteStmts = `
 					DELETE FROM dbo.admin_role_permissions;
 					DELETE FROM dbo.admin_users;
 					DELETE FROM dbo.processes;
 					DELETE FROM dbo.schedule_unavailable_dates;
 					DELETE FROM dbo.admin_roles;
-				`);
+				`;
+				console.log('[import] executing deletes');
+				await transaction.request().query(deleteStmts);
+				console.log('[import] deletes done');
 
 				const restoreOrder = ['admin_roles.csv', 'admin_users.csv', 'admin_role_permissions.csv', 'processes.csv', 'schedule_unavailable_dates.csv'];
 				for (const fileName of restoreOrder) {
@@ -904,11 +913,16 @@ function registerAdminRoutes(app) {
 					if (!csvText) {
 						throw new Error(`Missing required file: ${fileName}`);
 					}
+					const rowCount = csvText.trim().split('\n').filter(l => l.trim().length).length - 1; // subtract header
+					console.log(`[import] restoring ${fileName} (${rowCount} data rows)`);
 					await restoreTableFromCsv(transaction, fileName, meta.schema, meta.table, csvText);
+					console.log(`[import] ${fileName} restored`);
 				}
 				await transaction.commit();
+				console.log('[import] transaction committed successfully');
 				res.json({ ok: true, message: 'Archive imported successfully' });
 			} catch (restoreError) {
+				console.error('[import] restore error, rolling back:', restoreError.message);
 				try { await transaction.rollback(); } catch (rollbackError) { console.warn('[import] rollback failed:', rollbackError.message); }
 				throw restoreError;
 			}
