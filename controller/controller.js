@@ -1162,7 +1162,20 @@ function createApp() {
 
 	const requireAdminPageAccess = (req, res, next) => {
 		if (req.session && req.session.admin) {
-			next();
+			// Verify the admin user still exists in the database
+			getAdminPermissions(req.session.admin.username).then(function(adminData) {
+				if (adminData) {
+					next();
+				} else {
+					// Admin no longer exists in DB — destroy session and redirect
+					req.session.destroy(function() {
+						res.redirect('/adminlogin.html');
+					});
+				}
+			}).catch(function() {
+				// If DB check fails, allow access (avoid locking everyone out)
+				next();
+			});
 			return;
 		}
 
