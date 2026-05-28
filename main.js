@@ -212,6 +212,11 @@ document.addEventListener('DOMContentLoaded', () => {
         trashIcon.alt = 'Trash';
         trashIcon.style.cursor = 'pointer';
         trashIcon.addEventListener('click', function(e) {
+          // Only allow deletion for items that are Done
+          if (typeof isDone === 'boolean' && !isDone) {
+            e.stopPropagation();
+            return;
+          }
           e.stopPropagation();
           const processId = resultRow.dataset.processId;
           if (!processId) return;
@@ -236,7 +241,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusIcon = document.createElement('img');
         statusIcon.className = 'status-icon';
         statusIcon.src = getStatusIconSrc(row.selected_date);
-        statusIcon.alt = formatSelectedDate(row.selected_date) < getTodayIsoDate() ? 'Done' : 'Ongoing';
+        // determine done/ongoing state and set alt
+        const isDone = !!(row.selected_date && formatSelectedDate(row.selected_date) < getTodayIsoDate());
+        statusIcon.alt = isDone ? 'Done' : 'Ongoing';
+
+        // enable/disable trash based on done state
+        if (!isDone) {
+          trashIcon.style.pointerEvents = 'none';
+          trashIcon.style.opacity = '0.5';
+        } else {
+          trashIcon.style.pointerEvents = 'auto';
+          trashIcon.style.opacity = '1';
+        }
 
         resultRow.appendChild(statusIcon);
         resultRow.appendChild(serviceLabel);
