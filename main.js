@@ -365,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         if (btnSearch.dataset.enabled !== '1') return;
+        scrollUpdateResultsIntoView();
         runUpdateSearch();
       });
 
