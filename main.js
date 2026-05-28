@@ -323,6 +323,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (isUpdatePage) {
+      const btnBackUpdate = document.querySelector('.btnback');
+      if (btnBackUpdate) {
+        btnBackUpdate.style.cursor = 'pointer';
+        btnBackUpdate.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          navigateWithFade('./index.html');
+        });
+      }
+
       loadUpdateSearch();
       if (updateEmailField) {
         updateEmailField.addEventListener('input', updateSearchButtonState);
