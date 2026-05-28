@@ -250,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const scrollUpdateResultsIntoView = () => {
       if (!isUpdatePage) return;
+      unlockScroll();
       const target = document.querySelector('.rectangle-group') || updateMenuEl;
       if (target && typeof target.scrollIntoView === 'function') {
         window.setTimeout(() => {
