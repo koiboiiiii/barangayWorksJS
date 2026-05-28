@@ -44,7 +44,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (e) {}
 
-  // Navigation instrumentation removed to avoid interfering with page interactions.
+  // -- Navigation instrumentation (debugging random reloads) --
+  (function navInstrumentation(){
+    try {
+      var bwLogKey = 'bw_nav_log';
+      function pushNavEvent(ev) {
+        try {
+          var a = JSON.parse(localStorage.getItem(bwLogKey) || '[]');
+          a.push({ ts: Date.now(), ev: ev, stack: (new Error()).stack.split('\n').slice(2,8) });
+          if (a.length > 20) a = a.slice(a.length - 20);
+          localStorage.setItem(bwLogKey, JSON.stringify(a));
+        } catch (e) { /* ignore */ }
+      }
+
+      var _origReplace = window.location.replace.bind(window.location);
+      window.location.replace = function(url) {
+        pushNavEvent({ type: 'replace', url: String(url) });
+        return _origReplace(url);
+      };
+
+      var _origAssign = window.location.assign.bind(window.location);
+      window.location.assign = function(url) {
+        pushNavEvent({ type: 'assign', url: String(url) });
+        return _origAssign(url);
+      };
+
+      var _origReload = window.location.reload.bind(window.location);
+      window.location.reload = function() {
+        pushNavEvent({ type: 'reload' });
+        return _origReload();
+      };
+
+      // ensure navigateWithFade also logs
+      var _origNavigateWithFade = navigateWithFade;
+      navigateWithFade = function(url) {
+        pushNavEvent({ type: 'navigateWithFade', url: String(url) });
+        return _origNavigateWithFade(url);
+      };
+    } catch (e) {
+      /* ignore instrumentation failures */
+    }
+  })();
 
   function navigateWithFade(url) {
     if (!url) return;
@@ -1290,7 +1330,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     // Persist selected calendar cell across refreshes so user selection doesn't vanish
     var _schedulePendingKey = 'bw_pending_schedule';
-    var _scheduleOverridesKey = 'bw_schedule_overrides';
     function _loadSchedulePending() {
       try {
         var raw = localStorage.getItem(_schedulePendingKey);
@@ -1308,32 +1347,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function _clearSchedulePending() {
       try { localStorage.removeItem(_schedulePendingKey); } catch(e){}
     }
-    function _loadScheduleOverrides() {
-      try {
-        var raw = localStorage.getItem(_scheduleOverridesKey);
-        if (!raw) return {};
-        var obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object') return obj;
-      } catch (e) { /* ignore */ }
-      return {};
-    }
-    function _saveScheduleOverrides(obj) {
-      try { localStorage.setItem(_scheduleOverridesKey, JSON.stringify(obj || {})); } catch(e){}
-    }
-    function _setScheduleOverride(date, isUnavailable) {
-      try {
-        var o = _loadScheduleOverrides();
-        if (!date) return;
-        if (isUnavailable === null || typeof isUnavailable === 'undefined') {
-          delete o[date];
-        } else {
-          o[date] = !!isUnavailable;
-        }
-        _saveScheduleOverrides(o);
-      } catch(e){}
-    }
-    // load overrides in memory
-    var _scheduleOverrides = _loadScheduleOverrides();
 
     // Periodically refresh unavailable dates so calendar stays in sync with server-side changes.
     var schedulesRefreshTimer = window.setInterval(loadUnavailableDates, 5000);
@@ -1347,12 +1360,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveScheduleDate = async (scheduleDate, isUnavailable) => {
       try {
-        await fetch(`${API_BASE}/api/schedules`, {
+        const resp = await fetch(`${API_BASE}/api/schedules`, {
           method: 'PUT',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
         });
+        const payload = await resp.json().catch(() => null);
+        if (!resp.ok || !payload || !payload.ok) {
+          return false;
+        }
+        // Update local set to match server-confirmed state
+        if (isUnavailable) unavailableDates.add(scheduleDate);
+        else unavailableDates.delete(scheduleDate);
+        try { _clearSchedulePending(); } catch (e) {}
         return true;
       } catch (error) {
         return false;
@@ -1407,7 +1428,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const markSelectedUnavailable = () => {
       if (!selectedButton) return;
-      selectedCellUnavailable = !selectedCellUnavailable;
+      var prevState = selectedCellUnavailable;
+      var newState = !selectedCellUnavailable;
+      // Optimistically update UI
+      selectedCellUnavailable = newState;
       if (selectedCellUnavailable) {
         selectedButton.classList.add('unavailable');
         selectedButton.style.background = '#fbe3e3';
@@ -1424,21 +1448,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const selectedDate = selectedButton.dataset.date;
       if (selectedDate) {
-        // Set a local override immediately so UI persists while we save to server
-        _setScheduleOverride(selectedDate, selectedCellUnavailable);
-        _scheduleOverrides = _loadScheduleOverrides();
-        // Optimistically update local set so UI reflects change
-        if (selectedCellUnavailable) unavailableDates.add(selectedDate);
-        else unavailableDates.delete(selectedDate);
+        // persist pending intent before sending
+        _saveSchedulePending(selectedDate, selectedCellUnavailable);
         saveScheduleDate(selectedDate, selectedCellUnavailable).then(function(ok) {
           if (!ok) {
-            window.alert('Could not save schedule change. It will be retried later.');
-            // keep override so visual state remains and can be retried later
+            // revert UI to previous server-known state
+            selectedCellUnavailable = prevState;
+            if (selectedCellUnavailable) {
+              selectedButton.classList.add('unavailable');
+              selectedButton.style.background = '#fbe3e3';
+              const inner = selectedButton.querySelector('.day-picker8, .day-picker17');
+              if (inner) inner.style.color = '#e17272';
+            } else {
+              selectedButton.classList.remove('unavailable');
+              selectedButton.style.background = '#2c2c2c';
+              const inner = selectedButton.querySelector('.day-picker8, .day-picker17');
+              if (inner) inner.style.color = '#f5f5f5';
+            }
+            _saveSchedulePending(selectedDate, selectedCellUnavailable);
+            window.alert('Could not save schedule change.');
+            // ensure UI matches server
+            loadUnavailableDates();
           } else {
-            // server saved; remove override and refresh local server state
-            _setScheduleOverride(selectedDate, null);
-            _scheduleOverrides = _loadScheduleOverrides();
-            // prefer refreshing server state to reconcile any other changes
+            // server confirmed; refresh to get canonical state
+            _clearSchedulePending();
             loadUnavailableDates();
           }
         });
@@ -1501,7 +1534,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             cell.style.cursor = 'pointer';
             cell.addEventListener('click', () => {
-            cell.addEventListener('click', () => {
+          cell.addEventListener('click', () => {
               if (selectedButton) clearCellSelection(selectedButton);
               selectedButton = cell;
               selectedCellUnavailable = cell.classList.contains('unavailable');
@@ -1511,8 +1544,6 @@ document.addEventListener('DOMContentLoaded', () => {
               updateBtnMarkState();
               // Persist the current selection so background refreshes don't clear it
               _saveSchedulePending(cell.dataset.date, selectedCellUnavailable);
-              // ensure there's no lingering override unless user marks
-              _setScheduleOverride(cell.dataset.date, _scheduleOverrides[cell.dataset.date]);
             });
           }
           row.appendChild(cell);
@@ -1527,9 +1558,9 @@ document.addEventListener('DOMContentLoaded', () => {
               if (cell && !cell.classList.contains('disabled')) {
                 if (selectedButton) clearCellSelection(selectedButton);
                 selectedButton = cell;
-                selectedCellUnavailable = !!pending.isUnavailable || !!_scheduleOverrides[pending.date];
-                // If pending.isUnavailable or override says unavailable, mark visually
-                if (pending.isUnavailable || _scheduleOverrides[pending.date]) cell.classList.add('unavailable');
+                selectedCellUnavailable = !!pending.isUnavailable && cell.classList.contains('unavailable');
+                // If pending.isUnavailable differs from current class, prefer pending selection state visually
+                if (pending.isUnavailable) cell.classList.add('unavailable');
                 applySelectedCellState(cell);
                 calendarRoot.dataset.selected = cell.dataset.date;
                 setBtnSuccessEnabled(true);
