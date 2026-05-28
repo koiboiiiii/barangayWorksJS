@@ -24,24 +24,32 @@
   				return;
   			}
 
-				var apiBase = 'https://pampers-undrafted-urchin.ngrok-free.dev';
-				try {
-					var meta = document.querySelector('meta[name="next-public-api-url"]');
-					if (meta && meta.content) {
-						apiBase = meta.content;
-						window.BW_API_BASE = meta.content;
-					}
-				} catch (e) {}
+   				// Resolve API base: prefer same-origin (Vercel proxy) when on a deployed site
+   				var apiBase = (function(){
+   					try {
+   						if (window.location.hostname && !/localhost|127\.0\.0\.1/.test(window.location.hostname)) {
+   							return window.location.origin;
+   						}
+   					} catch(e) {}
+   					try {
+   						var meta = document.querySelector('meta[name="next-public-api-url"]');
+   						if (meta && meta.content) return meta.content;
+   					} catch(e) {}
+   					return 'https://pampers-undrafted-urchin.ngrok-free.dev';
+   				})();
+   				try {
+   					window.BW_API_BASE = apiBase;
+   				} catch(e) {}
 
-  			// Server-side validation + refresh permissions in sessionStorage
-			var refreshTimer = null;
-			var refreshInFlight = false;
-			function refreshAdminSession() {
-				if (refreshInFlight) return;
-				refreshInFlight = true;
-				var xhr = new XMLHttpRequest();
-				xhr.open('GET', apiBase + '/api/admin/' + encodeURIComponent(username) + '/permissions?ts=' + Date.now(), true);
-				xhr.withCredentials = true;
+   			// Server-side validation + refresh permissions in sessionStorage
+   			var refreshTimer = null;
+   			var refreshInFlight = false;
+   			function refreshAdminSession() {
+   				if (refreshInFlight) return;
+   				refreshInFlight = true;
+   				var xhr = new XMLHttpRequest();
+   				xhr.open('GET', apiBase + '/api/admin/' + encodeURIComponent(username) + '/permissions?ts=' + Date.now(), true);
+   				xhr.withCredentials = true;
 				xhr.onload = function() {
 					refreshInFlight = false;
 					try {
