@@ -1368,12 +1368,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const saveScheduleDate = async (scheduleDate, isUnavailable) => {
       try {
-        await fetch(`${API_BASE}/api/schedules`, {
+        const resp = await fetch(`${API_BASE}/api/schedules`, {
           method: 'PUT',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ schedule_date: scheduleDate, is_unavailable: isUnavailable })
         });
+        if (!resp || !resp.ok) {
+          return false;
+        }
         // On success, clear any pending override for this date
         try { delete pendingSchedules[scheduleDate]; _savePendingSchedules(); } catch (e) {}
         return true;
