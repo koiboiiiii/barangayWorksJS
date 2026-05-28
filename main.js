@@ -2176,16 +2176,27 @@ document.addEventListener('DOMContentLoaded', () => {
     btnExport.addEventListener('click', checkPermOrToast('btnexport', function(e) {
       // Request zip archive from server and download it
       fetch(`${API_BASE}/api/admin/export-archive`, { credentials: 'include' })
-        .then(async (res) => {
-          if (!res.ok) {
-            const text = await res.text().catch(() => '');
-            throw new Error(text || `Export failed: ${res.status}`);
-          }
-          const cd = res.headers.get('Content-Disposition') || '';
-          const m = /filename="?([^";]+)"?/.exec(cd);
-          const filename = m ? m[1] : `barangayArchive-${new Date().toISOString().slice(0,10)}.zip`;
-          return res.blob().then((blob) => ({ blob, filename }));
-        })
+          .then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text().catch(() => '');
+              throw new Error(text || `Export failed: ${res.status}`);
+            }
+            const contentType = String(res.headers.get('Content-Type') || '').toLowerCase();
+            if (!contentType.includes('application/zip') && !contentType.includes('application/octet-stream')) {
+              // If server returned JSON or HTML, try to show the error message instead of saving as zip
+              const txt = await res.text().catch(() => '');
+              let msg = txt;
+              try {
+                const j = JSON.parse(txt);
+                msg = j && j.error ? j.error : JSON.stringify(j);
+              } catch (e) { /* not json */ }
+              throw new Error('Server did not return a ZIP archive: ' + (msg || contentType));
+            }
+            const cd = res.headers.get('Content-Disposition') || '';
+            const m = /filename="?([^";]+)"?/.exec(cd);
+            const filename = m ? m[1] : `barangayArchive-${new Date().toISOString().slice(0,10)}.zip`;
+            return res.blob().then((blob) => ({ blob, filename }));
+          })
         .then(({ blob, filename }) => {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
