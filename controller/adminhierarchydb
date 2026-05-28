@@ -167,29 +167,18 @@ BEGIN
 	);
 END;
 
--- Ensure the built-in admin account exists and uses the Supervisor role
+-- Ensure the built-in admin account exists — only creates if missing, does NOT overwrite
+-- imported role assignments or display name
 DECLARE @AdminRoleId INT;
 SELECT @AdminRoleId = id
 FROM dbo.admin_roles
 WHERE role_name = 'Supervisor';
 
-IF EXISTS (
+IF NOT EXISTS (
 	SELECT 1
 	FROM dbo.admin_users
 	WHERE username = 'admin'
 )
-BEGIN
-	UPDATE dbo.admin_users
-	SET password_plaintext = 'b4r4ng4y!',
-		display_name = 'Administrator',
-		email = NULL,
-		role_id = @AdminRoleId,
-		barangay_id = NULL,
-		is_active = 1,
-		updated_at = SYSUTCDATETIME()
-	WHERE username = 'admin';
-END
-ELSE
 BEGIN
 	INSERT INTO dbo.admin_users (
 		username,
