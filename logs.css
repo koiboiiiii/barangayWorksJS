@@ -128,7 +128,7 @@
   z-index: 0;
 }
 .lblappointment {
-  width: 10.7738vw; /* 181px */
+  width: auto; /* 181px */
   height: 1.1905vw; /* 20px */
   position: absolute;
   margin: 0 !important;
@@ -161,7 +161,7 @@
   z-index: 1;
 }
 .lblserial {
-  width: 9.5vw; /* 160px */
+  width: auto; /* 160px */
   height: 1.1905vw; /* 20px */
   position: absolute;
   margin: 0 !important;
