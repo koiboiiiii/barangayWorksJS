@@ -85,9 +85,13 @@
 	background-color: #f7f2fa;
 	width: 38.45vw;
 	height: 22.50vw;
-	overflow: hidden;
+	overflow-y: auto;
 	display: flex;
+	flex-direction: column;
 	align-items: flex-start;
+	padding: 0;
+	margin: 0;
+	list-style: none;
 	isolation: isolate;
 	text-align: left;
 	font-size: 0.71vw;
@@ -98,16 +102,14 @@
 	height: 4.58vw;
 	width: 38.45vw;
 	margin: 0 !important;
-	position: absolute;
-	top: 4.58vw;
-	left: 0;
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	padding: 0.12vw 0;
 	box-sizing: border-box;
 	isolation: isolate;
-	z-index: 0;
+	flex: 0 0 auto;
 }
 .lblappointment {
 	width: 10.77vw;
@@ -182,16 +184,14 @@
 	height: 4.58vw;
 	width: 38.45vw;
 	margin: 0 !important;
-	position: absolute;
-	top: 0;
-	left: 0;
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
 	padding: 0.12vw 0;
 	box-sizing: border-box;
 	isolation: isolate;
-	z-index: 1;
+	flex: 0 0 auto;
 }
 .status-icon2 {
 	width: 2.20vw;

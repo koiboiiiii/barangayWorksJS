@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateMenuEl.innerHTML = '';
 
       if (!rows || !rows.length) {
-        const empty = document.createElement('div');
+          const empty = document.createElement('li');
         empty.className = 'done';
         empty.style.display = 'flex';
         empty.style.alignItems = 'center';
