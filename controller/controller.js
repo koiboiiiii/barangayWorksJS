@@ -999,6 +999,11 @@ function registerAdminRoutes(app) {
 
 	app.delete('/api/admin/user/:username', async (req, res) => {
 		try {
+			if (req.session && req.session.admin && req.session.admin.username &&
+				String(req.session.admin.username).toLowerCase() === String(req.params.username).toLowerCase()) {
+				res.status(400).json({ ok: false, error: 'Cannot delete your own account' });
+				return;
+			}
 			const result = await deleteAdminUser(req.params.username);
 			if (!result.ok) {
 				res.status(404).json(result);

@@ -717,55 +717,60 @@ document.addEventListener('DOMContentLoaded', () => {
         floatDropdown.appendChild(opt);
       });
 
-      // Add a destructive "Delete user" option at the end
-      var delOpt = document.createElement('button');
-      delOpt.type = 'button';
-      delOpt.className = 'role-option role-option-destructive';
-      var delIcon = document.createElement('img');
-      delIcon.className = 'role-option-icon';
-      delIcon.src = './assets/trash.png';
-      delIcon.alt = 'delete';
-      var delLabel = document.createElement('span');
-      delLabel.className = 'role-option-label';
-      delLabel.textContent = 'Delete user';
-      delOpt.appendChild(delIcon);
-      delOpt.appendChild(delLabel);
-      delOpt.addEventListener('click', function(e) {
-        e.stopPropagation();
-        if (!username) return;
-        if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
-        // Call backend to delete user
-        fetch(`${API_BASE}/api/admin/user/${encodeURIComponent(username)}`, {
-          method: 'DELETE',
-          credentials: 'include' })
-        .then(async function(r) {
-          var text = await r.text().catch(function(){ return ''; });
-          try {
-            return JSON.parse(text);
-          } catch(e) {
-            console.warn('[delete user] non-json response:', text.slice(0, 200));
-            return { ok: false, error: 'Server returned: ' + r.status + ' ' + text.slice(0, 100) };
-          }
-        })
-        .then(function(data) {
-          if (data && data.ok) {
-            // remove from local list and re-render
-            allUsers = allUsers.filter(function(u) { return u.username !== username; });
-            delete pendingChanges[username];
-            _savePendingToStorage();
-            closeFloatDropdown();
-            renderUsers();
-            updateApplyState();
-            alert('User deleted');
-          } else {
-            alert('Failed to delete user: ' + (data && data.error ? data.error : 'unknown'));
-          }
-        })
-        .catch(function(err) {
-          alert('Could not reach server to delete user: ' + (err && err.message ? err.message : ''));
+      // Add a destructive "Delete user" option at the end (skip for own account)
+      var currentUsername = '';
+      try { currentUsername = (sessionStorage.getItem('bw.admin.username') || '').toLowerCase(); } catch(e) {}
+      var isOwnAccount = currentUsername && (username || '').toLowerCase() === currentUsername;
+      if (!isOwnAccount) {
+        var delOpt = document.createElement('button');
+        delOpt.type = 'button';
+        delOpt.className = 'role-option role-option-destructive';
+        var delIcon = document.createElement('img');
+        delIcon.className = 'role-option-icon';
+        delIcon.src = './assets/trash.png';
+        delIcon.alt = 'delete';
+        var delLabel = document.createElement('span');
+        delLabel.className = 'role-option-label';
+        delLabel.textContent = 'Delete user';
+        delOpt.appendChild(delIcon);
+        delOpt.appendChild(delLabel);
+        delOpt.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (!username) return;
+          if (!confirm('Delete user "' + username + '"? This cannot be undone.')) return;
+          // Call backend to delete user
+          fetch(`${API_BASE}/api/admin/user/${encodeURIComponent(username)}`, {
+            method: 'DELETE',
+            credentials: 'include' })
+          .then(async function(r) {
+            var text = await r.text().catch(function(){ return ''; });
+            try {
+              return JSON.parse(text);
+            } catch(e) {
+              console.warn('[delete user] non-json response:', text.slice(0, 200));
+              return { ok: false, error: 'Server returned: ' + r.status + ' ' + text.slice(0, 100) };
+            }
+          })
+          .then(function(data) {
+            if (data && data.ok) {
+              // remove from local list and re-render
+              allUsers = allUsers.filter(function(u) { return u.username !== username; });
+              delete pendingChanges[username];
+              _savePendingToStorage();
+              closeFloatDropdown();
+              renderUsers();
+              updateApplyState();
+              alert('User deleted');
+            } else {
+              alert('Failed to delete user: ' + (data && data.error ? data.error : 'unknown'));
+            }
+          })
+          .catch(function(err) {
+            alert('Could not reach server to delete user: ' + (err && err.message ? err.message : ''));
+          });
         });
-      });
-      floatDropdown.appendChild(delOpt);
+        floatDropdown.appendChild(delOpt);
+      }
 
       activeIconButton = iconEl;
     }
