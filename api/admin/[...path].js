@@ -64,9 +64,13 @@ module.exports = async (req, res) => {
     res.status(fetchRes.status);
     const ct = fetchRes.headers.get('content-type');
     if (ct) res.setHeader('Content-Type', ct);
+    const cd = fetchRes.headers.get('content-disposition');
+    if (cd) res.setHeader('Content-Disposition', cd);
+    const cl = fetchRes.headers.get('content-length');
+    if (cl) res.setHeader('Content-Length', cl);
 
-    const text = await fetchRes.text();
-    res.send(text);
+    const arrayBuffer = await fetchRes.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
   } catch (err) {
     res.status(502).json({ ok: false, error: String(err) });
   }
