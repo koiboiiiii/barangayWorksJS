@@ -2174,34 +2174,28 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnExport) {
     btnExport.style.cursor = 'pointer';
     btnExport.addEventListener('click', checkPermOrToast('btnexport', function(e) {
-      // If there are pending imports stored, export those; otherwise fetch current processes
-      try {
-        const pendingRaw = localStorage.getItem('bw_pending_imports');
-        if (pendingRaw) {
-          const pending = JSON.parse(pendingRaw) || [];
-          if (Array.isArray(pending) && pending.length) {
-            const keys = Object.keys(pending[0] || {});
-            const csv = [keys.join(',')].concat(pending.map(r => keys.map(k => safeCsv(r[k])).join(','))).join('\n');
-            downloadCsv('pending-imports.csv', csv);
-            return;
+      // Request zip archive from server and download it
+      fetch(`${API_BASE}/api/admin/export-archive`, { credentials: 'include' })
+        .then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text().catch(() => '');
+            throw new Error(text || `Export failed: ${res.status}`);
           }
-        }
-      } catch (e) { /* ignore */ }
-
-      // Fallback: fetch processes from API and export
-      fetch(`${API_BASE}/api/processes?ts=${Date.now()}`, { credentials: 'include', cache: 'no-store' })
-        .then(r => r.json().catch(() => ({})))
-        .then(data => {
-          if (data && data.ok && Array.isArray(data.processes) && data.processes.length) {
-            const rows = data.processes;
-            const keys = Object.keys(rows[0]);
-            const csv = [keys.join(',')].concat(rows.map(r => keys.map(k => safeCsv(r[k])).join(','))).join('\n');
-            downloadCsv('processes-export.csv', csv);
-          } else {
-            window.alert('No processes found to export');
-          }
+          const cd = res.headers.get('Content-Disposition') || '';
+          const m = /filename="?([^";]+)"?/.exec(cd);
+          const filename = m ? m[1] : `barangayArchive-${new Date().toISOString().slice(0,10)}.zip`;
+          return res.blob().then((blob) => ({ blob, filename }));
         })
-        .catch(() => { window.alert('Failed to fetch processes for export'); });
+        .then(({ blob, filename }) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = filename; document.body.appendChild(a);
+          a.click(); setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+        })
+        .catch((err) => {
+          console.warn('export error', err);
+          window.alert('Export failed: ' + (err && err.message ? err.message : 'unknown'));
+        });
     }));
   }
 
@@ -2234,6 +2228,40 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!csvInput.files || !csvInput.files.length) return;
       const file = csvInput.files[0];
       const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
+      const isZip = isZipUpload(file.name, file.type);
+      if (isZip) {
+        // Upload zip to server import endpoint
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          try {
+            const arrayBuffer = evt.target.result;
+            fetch(`${API_BASE}/api/admin/import-archive`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/zip',
+                'X-File-Name': file.name,
+              },
+              body: arrayBuffer,
+            })
+            .then(r => r.json().catch(() => ({ ok: false, error: 'Invalid response' })))
+            .then(data => {
+              if (data && data.ok) {
+                showUploadToast();
+                // clear any client-side pending imports since DB restored
+                try { localStorage.removeItem('bw_pending_imports'); updateImportBadge(); } catch (e) {}
+                window.alert('Archive imported successfully');
+              } else {
+                window.alert('Import failed: ' + (data && data.error ? data.error : 'unknown'));
+              }
+            })
+            .catch(err => { window.alert('Import failed: ' + (err && err.message)); });
+          } catch (err) { console.warn('zip upload failed', err); }
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+
       if (!isCsv) { csvInput.value = ''; return; }
       const reader = new FileReader();
       reader.onload = function(evt) {
