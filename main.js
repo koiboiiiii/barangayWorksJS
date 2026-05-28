@@ -389,6 +389,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       updateSearchButtonState();
 
+      // Ensure fields are empty on page load (do not auto-populate from previous tests)
+      try {
+        setEditableValue(updateEmailField, '');
+        setEditableValue(updateFirstField, '');
+        setEditableValue(updateLastField, '');
+      } catch (e) { /* ignore */ }
+
       btnSearch.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
