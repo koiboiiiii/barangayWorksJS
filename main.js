@@ -2174,7 +2174,34 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnExport) {
     btnExport.style.cursor = 'pointer';
     btnExport.addEventListener('click', checkPermOrToast('btnexport', function(e) {
-      // Export functionality placeholder
+      // If there are pending imports stored, export those; otherwise fetch current processes
+      try {
+        const pendingRaw = localStorage.getItem('bw_pending_imports');
+        if (pendingRaw) {
+          const pending = JSON.parse(pendingRaw) || [];
+          if (Array.isArray(pending) && pending.length) {
+            const keys = Object.keys(pending[0] || {});
+            const csv = [keys.join(',')].concat(pending.map(r => keys.map(k => safeCsv(r[k])).join(','))).join('\n');
+            downloadCsv('pending-imports.csv', csv);
+            return;
+          }
+        }
+      } catch (e) { /* ignore */ }
+
+      // Fallback: fetch processes from API and export
+      fetch(`${API_BASE}/api/processes?ts=${Date.now()}`, { credentials: 'include', cache: 'no-store' })
+        .then(r => r.json().catch(() => ({})))
+        .then(data => {
+          if (data && data.ok && Array.isArray(data.processes) && data.processes.length) {
+            const rows = data.processes;
+            const keys = Object.keys(rows[0]);
+            const csv = [keys.join(',')].concat(rows.map(r => keys.map(k => safeCsv(r[k])).join(','))).join('\n');
+            downloadCsv('processes-export.csv', csv);
+          } else {
+            window.alert('No processes found to export');
+          }
+        })
+        .catch(() => { window.alert('Failed to fetch processes for export'); });
     }));
   }
 
@@ -2208,13 +2235,101 @@ document.addEventListener('DOMContentLoaded', () => {
       const file = csvInput.files[0];
       const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv';
       if (!isCsv) { csvInput.value = ''; return; }
-      showUploadToast();
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const text = String(evt.target.result || '');
+          const parsed = parseCsv(text);
+          // persist pending imports so UI/polling won't overwrite
+          localStorage.setItem('bw_pending_imports', JSON.stringify(parsed));
+          updateImportBadge();
+          showUploadToast();
+        } catch (e) { console.warn('Failed to parse CSV', e); }
+      };
+      reader.readAsText(file);
     });
 
     btnImport.addEventListener('click', checkPermOrToast('btnimport', function(e) {
       csvInput.value = '';
       csvInput.click();
     }));
+    
+    // badge to show pending imports count
+    const importBadge = document.createElement('span');
+    importBadge.className = 'import-badge';
+    importBadge.style.marginLeft = '8px';
+    importBadge.style.fontSize = '12px';
+    importBadge.style.color = '#fff';
+    importBadge.style.background = '#d9534f';
+    importBadge.style.padding = '2px 6px';
+    importBadge.style.borderRadius = '12px';
+    importBadge.style.display = 'inline-block';
+    importBadge.style.verticalAlign = 'middle';
+    importBadge.style.minWidth = '20px';
+    importBadge.style.textAlign = 'center';
+    importBadge.textContent = '';
+    btnImport.appendChild(importBadge);
+
+    const updateImportBadge = () => {
+      try {
+        const raw = localStorage.getItem('bw_pending_imports');
+        const arr = raw ? JSON.parse(raw) : [];
+        const n = Array.isArray(arr) ? arr.length : 0;
+        importBadge.textContent = n > 0 ? String(n) : '';
+      } catch (e) { importBadge.textContent = ''; }
+    };
+    updateImportBadge();
+  }
+
+  // Helpers for CSV handling and download
+  function safeCsv(value) {
+    if (value === null || value === undefined) return '';
+    const s = String(value);
+    if (s.indexOf(',') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('"') >= 0) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  function parseCsv(text) {
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+    if (!lines.length) return [];
+    const header = parseCsvLine(lines[0]);
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parts = parseCsvLine(lines[i]);
+      const obj = {};
+      for (let j = 0; j < header.length; j++) obj[header[j]] = parts[j] || '';
+      rows.push(obj);
+    }
+    return rows;
+  }
+
+  function parseCsvLine(line) {
+    const res = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i+1] === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        res.push(cur); cur = '';
+      } else cur += ch;
+    }
+    res.push(cur);
+    return res;
+  }
+
+  function downloadCsv(filename, text) {
+    try {
+      const blob = new Blob([text], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; document.body.appendChild(a);
+      a.click(); setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 500);
+    } catch (e) { window.alert('Failed to prepare download'); }
   }
 
 });
