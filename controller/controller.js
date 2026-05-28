@@ -1266,10 +1266,23 @@ function createApp() {
 	});
 
 	// Check session validity
-	app.get('/api/admin/session', (req, res) => {
+	app.get('/api/admin/session', async (req, res) => {
 		if (!req.session.admin) {
 			res.json({ ok: false });
 			return;
+		}
+		// Verify the admin user still exists in the database
+		try {
+			const adminData = await getAdminPermissions(req.session.admin.username);
+			if (!adminData) {
+				// Admin was deleted — destroy session
+				req.session.destroy(function() {
+					res.json({ ok: false, deleted: true });
+				});
+				return;
+			}
+		} catch (e) {
+			// DB error — still respond with session data
 		}
 		res.json({ ok: true, admin: req.session.admin });
 	});
