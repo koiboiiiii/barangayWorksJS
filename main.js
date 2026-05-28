@@ -44,47 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (e) {}
 
-  // -- Navigation instrumentation (debugging random reloads) --
-  (function navInstrumentation(){
-    try {
-      var bwLogKey = 'bw_nav_log';
-      function pushNavEvent(ev) {
-        try {
-          var a = JSON.parse(localStorage.getItem(bwLogKey) || '[]');
-          a.push({ ts: Date.now(), ev: ev, stack: (new Error()).stack.split('\n').slice(2,8) });
-          if (a.length > 20) a = a.slice(a.length - 20);
-          localStorage.setItem(bwLogKey, JSON.stringify(a));
-        } catch (e) { /* ignore */ }
-      }
-
-      var _origReplace = window.location.replace.bind(window.location);
-      window.location.replace = function(url) {
-        pushNavEvent({ type: 'replace', url: String(url) });
-        return _origReplace(url);
-      };
-
-      var _origAssign = window.location.assign.bind(window.location);
-      window.location.assign = function(url) {
-        pushNavEvent({ type: 'assign', url: String(url) });
-        return _origAssign(url);
-      };
-
-      var _origReload = window.location.reload.bind(window.location);
-      window.location.reload = function() {
-        pushNavEvent({ type: 'reload' });
-        return _origReload();
-      };
-
-      // ensure navigateWithFade also logs
-      var _origNavigateWithFade = navigateWithFade;
-      navigateWithFade = function(url) {
-        pushNavEvent({ type: 'navigateWithFade', url: String(url) });
-        return _origNavigateWithFade(url);
-      };
-    } catch (e) {
-      /* ignore instrumentation failures */
-    }
-  })();
+  // Navigation instrumentation removed to avoid interfering with page interactions.
 
   function navigateWithFade(url) {
     if (!url) return;
