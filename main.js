@@ -163,6 +163,61 @@ document.addEventListener('DOMContentLoaded', () => {
       field.addEventListener('blur', updateSearchButtonState);
       field.addEventListener('paste', () => { window.setTimeout(updateSearchButtonState, 0); });
     });
+    // --- Persist pending update/search fields to avoid UI reverts during polling/navigation ---
+    if (isUpdatePage) {
+      const _updatePendingKey = 'bw_pending_update_search';
+      function _loadUpdatePending() {
+        try {
+          const raw = localStorage.getItem(_updatePendingKey);
+          if (!raw) return null;
+          return JSON.parse(raw || '{}');
+        } catch (e) { return null; }
+      }
+      function _saveUpdatePending() {
+        try {
+          const emailField = document.querySelector('.text-field .tfusedemail');
+          const firstNameField = document.querySelector('.text-field3 .tfusedemail');
+          const lastNameField = document.querySelector('.text-field5 .tfusedemail');
+          const payload = {
+            email: (emailField && (emailField.textContent || '').trim()) || '',
+            firstName: (firstNameField && (firstNameField.textContent || '').trim()) || '',
+            lastName: (lastNameField && (lastNameField.textContent || '').trim()) || ''
+          };
+          localStorage.setItem(_updatePendingKey, JSON.stringify(payload));
+        } catch (e) { /* ignore */ }
+      }
+
+      // If no pending data, prefill the email per request
+      try {
+        const stored = _loadUpdatePending();
+        const emailField = document.querySelector('.text-field .tfusedemail');
+        const firstNameField = document.querySelector('.text-field3 .tfusedemail');
+        const lastNameField = document.querySelector('.text-field5 .tfusedemail');
+        if (stored && typeof stored === 'object') {
+          if (stored.email && emailField) emailField.textContent = stored.email;
+          if (stored.firstName && firstNameField) firstNameField.textContent = stored.firstName;
+          if (stored.lastName && lastNameField) lastNameField.textContent = stored.lastName;
+        } else {
+          // Prefill email with provided value when there's no saved pending search
+          const presetEmail = 'koiramos.121902@gmail.com';
+          if (emailField && (!emailField.textContent || emailField.textContent.trim() === '')) {
+            emailField.textContent = presetEmail;
+            _saveUpdatePending();
+          }
+        }
+
+        // Wire save handlers so typing persists immediately
+        [emailField, firstNameField, lastNameField].filter(Boolean).forEach((f) => {
+          try {
+            f.addEventListener('input', _saveUpdatePending);
+            f.addEventListener('keyup', _saveUpdatePending);
+            f.addEventListener('blur', _saveUpdatePending);
+            f.addEventListener('paste', () => { window.setTimeout(_saveUpdatePending, 0); });
+          } catch (e) { /* ignore */ }
+        });
+      } catch (e) { /* ignore */ }
+    }
+
     updateSearchButtonState();
   }
 
