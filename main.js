@@ -2212,6 +2212,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   }
 
+  // Helper to detect zip files (matches the same function on the backend)
+  function isZipUpload(fileName, mimeType) {
+    return /\.zip$/i.test(fileName || '') || /zip/i.test(mimeType || '');
+  }
+
   // --- btnimport ---
   const btnImport = document.querySelector('.btnimport');
   if (btnImport) {
