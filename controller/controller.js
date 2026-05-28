@@ -476,7 +476,18 @@ async function authenticateAdmin(username, password) {
 		};
 	}
 
-	await runAdminHierarchySeed();
+	// Only seed admin hierarchy if the admin user doesn't exist yet (first-time setup).
+	// This prevents the seed from overwriting imported role/permissions on every login.
+	try {
+		var pool = await getPool();
+		var checkResult = await pool.request().query(`SELECT COUNT(*) AS cnt FROM dbo.admin_users WHERE username = 'admin'`);
+		if (!checkResult.recordset || !checkResult.recordset[0] || checkResult.recordset[0].cnt === 0) {
+			await runAdminHierarchySeed();
+		}
+	} catch (e) {
+		// If tables don't exist yet, run the seed to create them
+		try { await runAdminHierarchySeed(); } catch (err) { /* ignore */ }
+	}
 
 	if (username === BUILTIN_ADMIN_USERNAME && password === BUILTIN_ADMIN_PASSWORD) {
 		const builtinAdmin = await getAdminPermissions(BUILTIN_ADMIN_USERNAME);
@@ -895,17 +906,19 @@ function registerAdminRoutes(app) {
 			console.log('[import] transaction begun');
 
 			try {
-				// Only restore user-facing data tables. Admin roles/users/permissions are
-				// managed by the seed script (runAdminHierarchySeed) on every login.
+				// Restore all tables — import always overwrites
 				const deleteStmts = `
+					DELETE FROM dbo.admin_role_permissions;
+					DELETE FROM dbo.admin_users;
 					DELETE FROM dbo.processes;
 					DELETE FROM dbo.schedule_unavailable_dates;
+					DELETE FROM dbo.admin_roles;
 				`;
 				console.log('[import] executing deletes');
 				await transaction.request().query(deleteStmts);
 				console.log('[import] deletes done');
 
-				const restoreOrder = ['processes.csv', 'schedule_unavailable_dates.csv'];
+				const restoreOrder = ['admin_roles.csv', 'admin_users.csv', 'admin_role_permissions.csv', 'processes.csv', 'schedule_unavailable_dates.csv'];
 				for (const fileName of restoreOrder) {
 					const meta = expectedMap[fileName];
 					const csvText = csvTexts[fileName];
