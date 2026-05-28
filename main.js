@@ -1131,10 +1131,49 @@ document.addEventListener('DOMContentLoaded', () => {
     reloadLogs();
 
     const btnApplyLogs = document.querySelector('.btnapply');
+    const tfserial = document.querySelector('.tfserial');
     if (btnApplyLogs) {
       btnApplyLogs.style.cursor = 'pointer';
       btnApplyLogs.addEventListener('click', () => {
-        navigateWithFade('./admindashboard.html');
+        const serial = (tfserial && (tfserial.value || tfserial.textContent || '') || '').toString().trim();
+        if (!serial) {
+          // empty -> reload full list
+          reloadLogs();
+          return;
+        }
+        fetch(`${API_BASE}/api/processes?ts=${Date.now()}`, { credentials: 'include', cache: 'no-store' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data && data.ok && Array.isArray(data.processes)) {
+              const matches = data.processes.filter(function(row) {
+                const s = formatSerialNumber(row) || '';
+                return s.indexOf(serial) !== -1;
+              });
+              if (matches.length) {
+                renderLogs(matches);
+              } else {
+                menuEl.innerHTML = '';
+                const empty = document.createElement('div');
+                empty.className = 'done log1';
+                empty.style.display = 'flex';
+                empty.style.alignItems = 'center';
+                empty.style.justifyContent = 'center';
+                empty.textContent = 'No logs found.';
+                menuEl.appendChild(empty);
+              }
+            }
+          })
+          .catch(function() {});
+      });
+    }
+
+    // Enter key on serial field should trigger search
+    if (tfserial) {
+      tfserial.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (btnApplyLogs) btnApplyLogs.click();
+        }
       });
     }
   }
