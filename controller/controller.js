@@ -895,18 +895,17 @@ function registerAdminRoutes(app) {
 			console.log('[import] transaction begun');
 
 			try {
+				// Only restore user-facing data tables. Admin roles/users/permissions are
+				// managed by the seed script (runAdminHierarchySeed) on every login.
 				const deleteStmts = `
-					DELETE FROM dbo.admin_role_permissions;
-					DELETE FROM dbo.admin_users;
 					DELETE FROM dbo.processes;
 					DELETE FROM dbo.schedule_unavailable_dates;
-					DELETE FROM dbo.admin_roles;
 				`;
 				console.log('[import] executing deletes');
 				await transaction.request().query(deleteStmts);
 				console.log('[import] deletes done');
 
-				const restoreOrder = ['admin_roles.csv', 'admin_users.csv', 'admin_role_permissions.csv', 'processes.csv', 'schedule_unavailable_dates.csv'];
+				const restoreOrder = ['processes.csv', 'schedule_unavailable_dates.csv'];
 				for (const fileName of restoreOrder) {
 					const meta = expectedMap[fileName];
 					const csvText = csvTexts[fileName];
