@@ -1134,7 +1134,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const tfserial = document.querySelector('.tfserial');
     if (btnApplyLogs) {
       btnApplyLogs.style.cursor = 'pointer';
-      btnApplyLogs.addEventListener('click', () => {
+      btnApplyLogs.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         const serial = (tfserial && (tfserial.value || tfserial.textContent || '') || '').toString().trim();
         if (!serial) {
           // empty -> reload full list
